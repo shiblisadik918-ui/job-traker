@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile document stored under users/{userId}",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user's unique ID from Firebase Auth" },
+        "email": { "type": "string", "description": "The user's email address" },
+        "displayName": { "type": "string", "description": "The user's display name" },
+        "photoURL": { "type": "string", "description": "The user's profile photo URL" },
+        "createdAt": { "type": "string", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Server last update timestamp" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Application": {
+      "title": "Application",
+      "description": "Job application document stored under users/{userId}/applications/{applicationId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Document ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "companyName": { "type": "string", "description": "Company name", "minLength": 1, "maxLength": 200 },
+        "companyLogo": { "type": "string", "description": "Company logo URL or monogram string" },
+        "jobTitle": { "type": "string", "description": "Job title or position", "minLength": 1, "maxLength": 200 },
+        "location": { "type": "string", "description": "Office or remote location" },
+        "jobType": {
+          "type": "string",
+          "enum": ["Full-time", "Part-time", "Internship", "Contract", "Remote"]
+        },
+        "applicationDate": { "type": "string", "description": "Date applied (YYYY-MM-DD or ISO string)" },
+        "deadline": { "type": "string", "description": "Application or next step deadline" },
+        "applicationSource": {
+          "type": "string",
+          "enum": ["Company Website", "LinkedIn", "Bdjobs", "Email", "Referral", "Other"]
+        },
+        "salary": { "type": "string", "description": "Salary or compensation range" },
+        "jobUrl": { "type": "string", "description": "Listing or posting URL" },
+        "status": {
+          "type": "string",
+          "enum": ["Saved", "Applied", "Shortlisted", "Interview", "Offer", "Rejected", "Withdrawn"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["Low", "Medium", "High"]
+        },
+        "notes": { "type": "string", "description": "Personal application notes" },
+        "timeline": {
+          "type": "array",
+          "description": "History of status updates and notes"
+        },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Last update timestamp" }
+      },
+      "required": ["companyName", "jobTitle", "status", "userId"]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "Reminder task stored under users/{userId}/reminders/{reminderId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Document ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "applicationId": { "type": "string", "description": "Optional associated job application ID" },
+        "title": { "type": "string", "description": "Reminder title or action item", "minLength": 1, "maxLength": 200 },
+        "dueDate": { "type": "string", "description": "Reminder due date/time" },
+        "completed": { "type": "boolean", "description": "Completion status flag" },
+        "notes": { "type": "string", "description": "Additional reminder notes" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Last update timestamp" }
+      },
+      "required": ["title", "userId", "completed"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private profile document for each registered user"
+    },
+    "/users/{userId}/applications/{applicationId}": {
+      "schema": "Application",
+      "description": "User's job applications tracking subcollection"
+    },
+    "/users/{userId}/reminders/{reminderId}": {
+      "schema": "Reminder",
+      "description": "User's task and interview reminders subcollection"
+    }
+  }
+}

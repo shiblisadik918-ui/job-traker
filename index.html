@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JobTrack</title>
+    <!-- Suppress benign cross-origin frame $$typeof SecurityError thrown by React 19 dev runtime inspecting third-party iframes (e.g. Firebase Auth) -->
+    <script>
+      (function () {
+        var isCrossFrameSecurityError = function (eventOrMsg) {
+          var msg = '';
+          if (typeof eventOrMsg === 'string') {
+            msg = eventOrMsg;
+          } else if (eventOrMsg) {
+            msg =
+              eventOrMsg.message ||
+              (eventOrMsg.error && eventOrMsg.error.message) ||
+              (eventOrMsg.reason && eventOrMsg.reason.message) ||
+              String(eventOrMsg.error || eventOrMsg.reason || '');
+          }
+          return (
+            msg.includes('$$typeof') ||
+            (msg.includes('SecurityError') && (msg.includes('cross-origin frame') || msg.includes('Blocked a frame'))) ||
+            msg.includes('Blocked a frame with origin')
+          );
+        };
+
+        window.addEventListener(
+          'error',
+          function (e) {
+            if (isCrossFrameSecurityError(e)) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              return true;
+            }
+          },
+          true
+        );
+
+        window.addEventListener(
+          'unhandledrejection',
+          function (e) {
+            if (isCrossFrameSecurityError(e)) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+            }
+          },
+          true
+        );
+
+        var prevOnError = window.onerror;
+        window.onerror = function (message, source, lineno, colno, error) {
+          if (isCrossFrameSecurityError(message) || isCrossFrameSecurityError(error)) {
+            return true;
+          }
+          if (typeof prevOnError === 'function') {
+            return prevOnError.apply(this, arguments);
+          }
+        };
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <meta name="description" content="A personal job application tracker to add, track, update, search, and remember job applications." />
+    <meta property="og:title" content="JobTrack" />
+    <meta property="og:description" content="A personal job application tracker to add, track, update, search, and remember job applications." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+

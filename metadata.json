@@ -1,0 +1,6 @@
+{
+  "name": "JobTrack",
+  "description": "A personal job application tracker to add, track, update, search, and remember job applications.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
