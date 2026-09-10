@@ -1,17 +1,23 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useTheme } from '../context/ThemeContext';
 import { getApplications } from '../services/applicationsService';
 import { getUserProfileData, updateUserProfileData } from '../services/authService';
+import { calculateProfileCompleteness, SAMPLE_CV_DATA } from '../utils/profileVerification';
 import CsvImportModal from '../components/applications/CsvImportModal';
+import CvPreviewModal from '../components/cv/CvPreviewModal';
 
 export default function Settings() {
   const { user, logout } = useAuth();
   const { showSuccess, showError } = useToast();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
+  const photoInputRef = useRef(null);
+
+  // On-Demand CV Preview Modal state (hidden by default)
+  const [isCvPreviewOpen, setIsCvPreviewOpen] = useState(false);
 
   // Profile Editor State
   const [profileLoading, setProfileLoading] = useState(true);
@@ -23,10 +29,19 @@ export default function Settings() {
     workMode: 'Remote',
     preferredLocation: '',
     phone: '',
+    email: '',
+    address: '',
+    careerObjective: '',
+    careerSummary: '',
+    workExperience: '',
+    specialQualifications: '',
+    languageProficiency: '',
+    personalDetails: '',
     portfolioUrl: '',
     linkedinUrl: '',
     jobSearchStatus: 'Actively Looking',
     bio: '',
+    photoURL: '',
   });
 
   // Export / Import State
@@ -38,7 +53,7 @@ export default function Settings() {
     async function loadProfile() {
       if (!user?.uid) return;
       setProfileLoading(true);
-      const { profile, error } = await getUserProfileData(user.uid);
+      const { profile } = await getUserProfileData(user.uid);
       if (profile) {
         setFormData({
           displayName: profile.displayName || user.displayName || '',
@@ -47,15 +62,26 @@ export default function Settings() {
           workMode: profile.workMode || 'Remote',
           preferredLocation: profile.preferredLocation || '',
           phone: profile.phone || '',
+          email: profile.email || user.email || '',
+          address: profile.address || '',
+          careerObjective: profile.careerObjective || '',
+          careerSummary: profile.careerSummary || '',
+          workExperience: profile.workExperience || '',
+          specialQualifications: profile.specialQualifications || '',
+          languageProficiency: profile.languageProficiency || '',
+          personalDetails: profile.personalDetails || '',
           portfolioUrl: profile.portfolioUrl || '',
           linkedinUrl: profile.linkedinUrl || '',
           jobSearchStatus: profile.jobSearchStatus || 'Actively Looking',
           bio: profile.bio || '',
+          photoURL: profile.photoURL || user.photoURL || '',
         });
       } else {
         setFormData((prev) => ({
           ...prev,
           displayName: user.displayName || user.email?.split('@')[0] || '',
+          email: user.email || '',
+          photoURL: user.photoURL || '',
         }));
       }
       setProfileLoading(false);
@@ -173,15 +199,84 @@ export default function Settings() {
     }
   };
 
-  const displayName = formData.displayName || user?.displayName || user?.email?.split('@')[0] || 'Candidate';
-  const email = user?.email || 'user@example.com';
-  const uid = user?.uid || 'N/A';
+  // Calculate verification metrics
+  const { percentage, isVerified } = calculateProfileCompleteness(formData);
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      showError('ছবির সাইজ ২MB এর কম হতে হবে');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setFormData((prev) => ({
+        ...prev,
+        photoURL: event.target.result,
+      }));
+      showSuccess('ছবি সফলভাবে যুক্ত হয়েছে!');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = () => {
+    setFormData((prev) => ({ ...prev, photoURL: '' }));
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    showSuccess('ছবি মুছে ফেলা হয়েছে');
+  };
+
+  const handleClearAll = () => {
+    if (window.confirm('আপনি কি নিশ্চিত যে সিভির সমস্ত তথ্য মুছে ফাঁকা করতে চান?')) {
+      setFormData({
+        displayName: '',
+        targetRole: '',
+        targetSalary: '',
+        workMode: 'Remote',
+        preferredLocation: '',
+        phone: '',
+        email: '',
+        address: '',
+        careerObjective: '',
+        careerSummary: '',
+        workExperience: '',
+        specialQualifications: '',
+        languageProficiency: '',
+        personalDetails: '',
+        portfolioUrl: '',
+        linkedinUrl: '',
+        jobSearchStatus: 'Actively Looking',
+        bio: '',
+        photoURL: '',
+      });
+      if (photoInputRef.current) photoInputRef.current.value = '';
+      showSuccess('সিভির সমস্ত তথ্য মুছে ফাঁকা করা হয়েছে।');
+    }
+  };
+
+  const handleLoadSample = () => {
+    setFormData((prev) => ({
+      ...prev,
+      ...SAMPLE_CV_DATA,
+    }));
+    showSuccess('নমুনা তথ্য (Sample CV Data) সফলভাবে লোড করা হয়েছে!');
+  };
+
+  const displayName = formData.displayName || user?.displayName || user?.email?.split('@')[0] || 'Alex Chen';
+  const email = formData.email || user?.email || 'alex.chen@student.edu';
+  const uid = user?.uid || 'user_demo_123';
   const photoURL =
+    formData.photoURL ||
     user?.photoURL ||
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuAXaKP8v0P4JJuVOXs6U8SkYcrQ5rsr_Iaxf9xDpFkcmLU5CRhbRdwDu8vg4IJSCdRlCoKkEmJ5sn6V3iUrOoOgeWow6AhBBwFGWA8gfJvVrc0RZ1RQTQmOgQ4I7dYpyzwGMfwwBv5PlRab-DYUVJSZUeuis48OQR6nDOWkKKMz6oshUzfyu6-eqoz9dtd4wfXQk1f-6Nih_zFSdJJ3gNjzX7_NeC79KVQ8V69ZiKQh02_BuqoNwDhY';
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
 
   return (
-    <div id="settings-page" className="max-w-3xl mx-auto space-y-space-lg animate-in fade-in duration-200">
+    <div
+      id="settings-page"
+      className="max-w-4xl mx-auto space-y-space-lg transition-all duration-300 animate-in fade-in"
+    >
       {/* Page Header */}
       <div>
         <h1 id="settings-title" className="font-display-lg-mobile md:font-display-lg text-on-surface font-bold tracking-tight">
@@ -210,6 +305,16 @@ export default function Settings() {
                 <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold truncate">
                   {displayName}
                 </h2>
+                {isVerified ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 font-label-sm text-[11px] font-bold">
+                    <span className="material-symbols-outlined text-[15px] text-blue-600">verified</span>
+                    Account Verified
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-label-sm text-[11px] font-semibold">
+                    {percentage}% Completed
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary-fixed text-primary font-label-sm text-[11px] font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
                   {formData.jobSearchStatus}
@@ -227,12 +332,139 @@ export default function Settings() {
           </span>
         </div>
 
-        {/* Profile Editor Form */}
-        <form onSubmit={handleSaveProfile} className="space-y-4">
-          <div className="flex items-center gap-2 text-on-surface font-bold text-sm">
-            <span className="material-symbols-outlined text-primary text-[20px]">badge</span>
-            <h3>Candidate Details</h3>
+        {/* Verification Status & Action Buttons Banner */}
+        <div
+          className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+            isVerified
+              ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/40'
+              : 'bg-surface-container-low border-surface-container-high'
+          }`}
+        >
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span
+                className={`material-symbols-outlined text-[22px] ${
+                  isVerified ? 'text-blue-600' : 'text-primary'
+                }`}
+              >
+                {isVerified ? 'verified' : 'fact_check'}
+              </span>
+              <h4 className="font-semibold text-sm text-on-surface">
+                {isVerified ? 'আপনার অ্যাকাউন্ট সম্পূর্ণ ভেরিফাইড!' : `প্রোফাইল সম্পূর্ণতা: ${percentage}%`}
+              </h4>
+            </div>
+            <p className="text-xs text-on-surface-variant max-w-md">
+              {isVerified
+                ? 'আপনার সব সিভি তথ্য সংরক্ষিত আছে। প্রয়োজন হলে প্রিভিউ দেখে বা PDF ডাউনলোড করতে পারেন।'
+                : 'সব ফিল্ড পূরণ করলে স্বয়ংক্রিয়ভাবে অ্যাকাউন্ট ভেরিফাইড হবে এবং আপনার পছন্দমতো সিভি তৈরি হবে।'}
+            </p>
           </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 dark:border-red-800/40 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-semibold transition-colors flex items-center gap-1"
+            >
+              <span className="material-symbols-outlined text-[15px]">delete_sweep</span>
+              <span>সব খালি করুন</span>
+            </button>
+            {!isVerified && (
+              <button
+                type="button"
+                onClick={handleLoadSample}
+                className="px-3 py-1.5 rounded-lg bg-surface-container text-xs font-semibold text-on-surface hover:bg-surface-container-high transition-colors"
+              >
+                নমুনা তথ্য লোড
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsCvPreviewOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all"
+            >
+              <span className="material-symbols-outlined text-[16px]">visibility</span>
+              <span>সিভি প্রিভিউ ও ডাউনলোড</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Profile Editor Form */}
+        <form onSubmit={handleSaveProfile} className="space-y-4 pt-1">
+          <div className="flex items-center justify-between text-on-surface font-bold text-sm pb-1">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[20px]">badge</span>
+              <h3>Candidate Details</h3>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="text-xs font-normal text-red-500 hover:underline flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[14px]">clear_all</span>
+                সব মুছুন
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCvPreviewOpen(true)}
+                className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[15px]">visibility</span>
+                <span>সিভি প্রিভিউ</span>
+              </button>
+            </div>
+          </div>
+
+                {/* Candidate Photo Uploader */}
+                <div className="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/30 space-y-3">
+                  <label className="block text-xs font-semibold text-on-surface">
+                    প্রোফাইল ছবি (Candidate Photo)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={photoURL}
+                      alt={displayName}
+                      className="w-14 h-14 rounded-xl object-cover ring-2 ring-primary/20 bg-surface-container"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="file"
+                        ref={photoInputRef}
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => photoInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-lg bg-surface-container text-xs font-semibold text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">upload</span>
+                        <span>ছবি আপলোড করুন</span>
+                      </button>
+                      {formData.photoURL && (
+                        <button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          className="px-2.5 py-1.5 rounded-lg border border-outline-variant/30 text-xs text-on-surface-variant hover:text-red-500 transition-colors"
+                        >
+                          মুছে ফেলুন
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <input
+                    id="photoURL"
+                    name="photoURL"
+                    type="url"
+                    value={formData.photoURL}
+                    onChange={handleChange}
+                    placeholder="অথবা ছবির সরাসরি URL লিংক দিন (https://...)"
+                    className="w-full px-3 py-2 bg-surface-container border border-outline-variant/30 rounded-lg text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Full Name */}
@@ -387,6 +619,118 @@ export default function Settings() {
             />
           </div>
 
+          {/* Address */}
+          <div>
+            <label htmlFor="address" className="block text-xs font-semibold text-on-surface mb-1">
+              বর্তমান ও স্থায়ী ঠিকানা (Address) *
+            </label>
+            <input
+              id="address"
+              name="address"
+              type="text"
+              value={formData.address}
+              onChange={handleChange}
+              placeholder="আপনার বর্তমান ও স্থায়ী ঠিকানা লিখুন"
+              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+          </div>
+
+          {/* Career Objective */}
+          <div>
+            <label htmlFor="careerObjective" className="block text-xs font-semibold text-on-surface mb-1">
+              Career Objective (ক্যারিয়ার উদ্দেশ্য) *
+            </label>
+            <textarea
+              id="careerObjective"
+              name="careerObjective"
+              rows={2}
+              value={formData.careerObjective}
+              onChange={handleChange}
+              placeholder="আপনার ক্যারিয়ারের উদ্দেশ্য সংক্ষেপে লিখুন..."
+              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y leading-relaxed"
+            />
+          </div>
+
+          {/* Career Summary */}
+          <div>
+            <label htmlFor="careerSummary" className="block text-xs font-semibold text-on-surface mb-1">
+              Career Summary (ক্যারিয়ার সারাংশ) *
+            </label>
+            <textarea
+              id="careerSummary"
+              name="careerSummary"
+              rows={2}
+              value={formData.careerSummary}
+              onChange={handleChange}
+              placeholder="আপনার পেশাগত বা শিক্ষাগত সারাংশ লিখুন..."
+              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y leading-relaxed"
+            />
+          </div>
+
+          {/* Work Experience */}
+          <div>
+            <label htmlFor="workExperience" className="block text-xs font-semibold text-on-surface mb-1">
+              Work Experience (কাজের অভিজ্ঞতা বা ফ্রেশার বিবরণ) *
+            </label>
+            <textarea
+              id="workExperience"
+              name="workExperience"
+              rows={2}
+              value={formData.workExperience}
+              onChange={handleChange}
+              placeholder="কাজের অভিজ্ঞতা বা ফ্রেশার বিবরণ লিখুন..."
+              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y leading-relaxed"
+            />
+          </div>
+
+          {/* Special Qualifications */}
+          <div>
+            <label htmlFor="specialQualifications" className="block text-xs font-semibold text-on-surface mb-1">
+              Special Qualifications (বিশেষ দক্ষতা / স্কিল) *
+            </label>
+            <textarea
+              id="specialQualifications"
+              name="specialQualifications"
+              rows={3}
+              value={formData.specialQualifications}
+              onChange={handleChange}
+              placeholder="আপনার বিশেষ দক্ষতা বা স্কিলসমূহ লিখুন..."
+              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono text-xs leading-relaxed"
+            />
+          </div>
+
+          {/* Language Proficiency */}
+          <div>
+            <label htmlFor="languageProficiency" className="block text-xs font-semibold text-on-surface mb-1">
+              Language Proficiency (ভাষাগত দক্ষতা) *
+            </label>
+            <textarea
+              id="languageProficiency"
+              name="languageProficiency"
+              rows={2}
+              value={formData.languageProficiency}
+              onChange={handleChange}
+              placeholder="ভাষাগত দক্ষতা লিখুন (যেমন: বাংলা, ইংরেজি ইত্যাদি)..."
+              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono text-xs leading-relaxed"
+            />
+          </div>
+
+          {/* Personal Details */}
+          <div>
+            <label htmlFor="personalDetails" className="block text-xs font-semibold text-on-surface mb-1">
+              Personal Details (পিতার নাম, জন্ম তারিখ ইত্যাদি) *
+            </label>
+            <textarea
+              id="personalDetails"
+              name="personalDetails"
+              rows={3}
+              value={formData.personalDetails}
+              onChange={handleChange}
+              placeholder="পিতার নাম, জন্ম তারিখ, জাতীয়তা, ধর্ম ইত্যাদি লিখুন..."
+              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono text-xs leading-relaxed"
+            />
+          </div>
+
           {/* Bio / Summary */}
           <div>
             <label htmlFor="bio" className="block text-xs font-semibold text-on-surface mb-1">
@@ -395,7 +739,7 @@ export default function Settings() {
             <textarea
               id="bio"
               name="bio"
-              rows={3}
+              rows={2}
               value={formData.bio}
               onChange={handleChange}
               placeholder="Describe your core technical strengths, years of experience, and what you're looking for in your next role..."
@@ -403,19 +747,45 @@ export default function Settings() {
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-surface-container-high/30 flex-wrap">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCvPreviewOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all"
+              >
+                <span className="material-symbols-outlined text-[17px]">visibility</span>
+                <span>সিভি প্রিভিউ ও PDF ডাউনলোড</span>
+              </button>
+              <Link
+                to="/cv"
+                className="hidden sm:flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary transition-colors px-2 py-1"
+              >
+                <span className="material-symbols-outlined text-[15px]">badge</span>
+                <span>CV Builder</span>
+              </Link>
+            </div>
+
             <button
               id="save-profile-settings-btn"
               type="submit"
               disabled={isSavingProfile || profileLoading}
-              className="flex items-center gap-1.5 px-space-md py-2.5 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md font-semibold hover:bg-primary transition-all shadow-xs disabled:opacity-50"
+              className="flex items-center gap-1.5 px-space-lg py-2.5 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-primary/90 transition-all shadow-xs disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[18px]">check</span>
-              <span>{isSavingProfile ? 'Saving Profile...' : 'Save Profile Changes'}</span>
+              <span>{isSavingProfile ? 'সংরক্ষণ হচ্ছে...' : 'তথ্য সংরক্ষণ করুন (Save Profile)'}</span>
             </button>
           </div>
         </form>
       </div>
+
+      {/* On-Demand CV Preview & Download Modal */}
+      <CvPreviewModal
+        isOpen={isCvPreviewOpen}
+        onClose={() => setIsCvPreviewOpen(false)}
+        data={formData}
+        isVerified={isVerified}
+      />
 
       {/* Theme Preference Card */}
       <div

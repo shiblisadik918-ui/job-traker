@@ -13,6 +13,7 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase/config';
 import { getFriendlyErrorMessage } from '../firebase/errorHandler';
+import { calculateProfileCompleteness } from '../utils/profileVerification';
 
 /**
  * Sync user profile details to Firestore users/{userId}
@@ -144,30 +145,57 @@ export async function updateUserProfileData(userId, profileData) {
     if (!userId) throw new Error('User not authenticated.');
     const user = auth.currentUser;
 
+    const profileUpdates = {};
     if (profileData.displayName && user && user.displayName !== profileData.displayName) {
-      await updateProfile(user, { displayName: profileData.displayName });
+      profileUpdates.displayName = profileData.displayName;
     }
+    if (profileData.photoURL && user && user.photoURL !== profileData.photoURL && !profileData.photoURL.startsWith('data:')) {
+      // Firebase Auth photoURL requires valid URL (not huge base64)
+      profileUpdates.photoURL = profileData.photoURL;
+    }
+
+    if (Object.keys(profileUpdates).length > 0) {
+      try {
+        await updateProfile(user, profileUpdates);
+      } catch (authErr) {
+        console.warn('Could not update Firebase Auth profile:', authErr);
+      }
+    }
+
+    // Compute completeness and verification
+    const { percentage, isVerified } = calculateProfileCompleteness(profileData);
 
     const userRef = doc(db, 'users', userId);
     await setDoc(
       userRef,
       {
         displayName: profileData.displayName || '',
+        photoURL: profileData.photoURL || user?.photoURL || '',
         targetRole: profileData.targetRole || '',
         targetSalary: profileData.targetSalary || '',
         workMode: profileData.workMode || 'Remote',
         preferredLocation: profileData.preferredLocation || '',
         bio: profileData.bio || '',
         phone: profileData.phone || '',
+        email: profileData.email || user?.email || '',
+        address: profileData.address || '',
+        careerObjective: profileData.careerObjective || '',
+        careerSummary: profileData.careerSummary || '',
+        workExperience: profileData.workExperience || '',
+        specialQualifications: profileData.specialQualifications || '',
+        languageProficiency: profileData.languageProficiency || '',
+        personalDetails: profileData.personalDetails || '',
         portfolioUrl: profileData.portfolioUrl || '',
         linkedinUrl: profileData.linkedinUrl || '',
         jobSearchStatus: profileData.jobSearchStatus || 'Actively Looking',
+        isVerified,
+        profileCompleteness: percentage,
         updatedAt: serverTimestamp(),
       },
       { merge: true }
     );
 
-    return { success: true, error: null };
+    return { success: true, error: null, isVerified, profileCompleteness: percentage };
   } catch (error) {
     return {
       success: false,

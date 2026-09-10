@@ -10,7 +10,7 @@ import ConfirmationModal from '../components/common/ConfirmationModal';
 import CalendarExportButtons from '../components/common/CalendarExportButtons';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, userProfile, isVerified, profileCompleteness } = useAuth();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const { openAddModal, openEditModal } = useApplicationModal();
@@ -302,7 +302,7 @@ export default function Dashboard() {
     }
   };
 
-  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Alex';
+  const displayName = userProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Alex';
 
   // Get monogram helper
   const getMonogram = (name) => {
@@ -611,6 +611,65 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      {/* Verification & Live CV Status Banner */}
+      <div
+        id="dashboard-verification-banner"
+        className={`p-space-md rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+          isVerified
+            ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/40 shadow-xs'
+            : 'bg-surface-container-lowest border-surface-container-high/40 shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]'
+        }`}
+      >
+        <div className="flex items-center gap-3.5">
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+              isVerified
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-primary/10 text-primary'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[24px]">
+              {isVerified ? 'verified' : 'badge'}
+            </span>
+          </div>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-headline-sm text-sm font-bold text-on-surface">
+                {isVerified
+                  ? 'Account Verified • Live CV Ready'
+                  : 'Complete Profile to Get Verified & Generate Live CV'}
+              </h3>
+              {isVerified ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                  Verified
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-[10px] font-semibold">
+                  {profileCompleteness || 0}% Done
+                </span>
+              )}
+            </div>
+            <p className="font-body-sm text-xs text-on-surface-variant max-w-xl">
+              {isVerified
+                ? 'আপনার প্রোফাইল তথ্য ১০০% সম্পূর্ণ ও অ্যাকাউন্ট ভেরিফাইড। যেকোনো সময় লাইভ সিভি প্রিন্ট বা আপডেট করতে পারেন।'
+                : 'সকল প্রয়োজনীয় ব্যক্তিগত ও পেশাগত তথ্য পূরণ করলে অ্যাকাউন্ট ভেরিফাইড ব্যাজ পাবেন এবং লাইভ সিভি তৈরি হবে।'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <Link
+            to="/cv"
+            id="dashboard-open-cv-btn"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-md text-xs font-semibold hover:bg-primary/90 transition-all shadow-xs w-full sm:w-auto"
+          >
+            <span className="material-symbols-outlined text-[16px]">visibility</span>
+            <span>{isVerified ? 'Live CV দেখুন ও প্রিন্ট করুন' : 'প্রোফাইল সম্পূর্ণ করুন'}</span>
+          </Link>
+        </div>
+      </div>
 
       {/* 4 Compact Statistic Cards */}
       <section

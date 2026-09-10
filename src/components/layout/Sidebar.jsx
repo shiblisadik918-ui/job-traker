@@ -4,13 +4,20 @@ import { useToast } from '../../hooks/useToast';
 import JobTrackLogo from '../common/JobTrackLogo';
 
 export default function Sidebar() {
-  const { user, logout } = useAuth();
+  const { user, userProfile, isVerified, profileCompleteness, logout } = useAuth();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: 'grid_view' },
     { to: '/applications', label: 'Applications', icon: 'view_kanban' },
+    {
+      to: '/cv',
+      label: 'Live CV',
+      icon: 'badge',
+      badge: isVerified ? 'Verified' : `${profileCompleteness || 0}%`,
+      isVerified,
+    },
     { to: '/reminders', label: 'Reminders', icon: 'alarm' },
     { to: '/statistics', label: 'Statistics', icon: 'insights' },
     { to: '/settings', label: 'Settings', icon: 'settings' },
@@ -26,9 +33,13 @@ export default function Sidebar() {
     }
   };
 
-  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Alex Chen';
-  const email = user?.email || 'alex.chen@student.edu';
-  const photoURL = user?.photoURL || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAXaKP8v0P4JJuVOXs6U8SkYcrQ5rsr_Iaxf9xDpFkcmLU5CRhbRdwDu8vg4IJSCdRlCoKkEmJ5sn6V3iUrOoOgeWow6AhBBwFGWA8gfJvVrc0RZ1RQTQmOgQ4I7dYpyzwGMfwwBv5PlRab-DYUVJSZUeuis48OQR6nDOWkKKMz6oshUzfyu6-eqoz9dtd4wfXQk1f-6Nih_zFSdJJ3gNjzX7_NeC79KVQ8V69ZiKQh02_BuqoNwDhY';
+  const displayName =
+    userProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Alex Chen';
+  const email = userProfile?.email || user?.email || 'alex.chen@student.edu';
+  const photoURL =
+    userProfile?.photoURL ||
+    user?.photoURL ||
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
 
   return (
     <aside
@@ -58,18 +69,31 @@ export default function Sidebar() {
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
-                id={`sidebar-nav-${item.label.toLowerCase()}`}
+                id={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex items-center gap-space-xs px-space-sm py-space-xs rounded-xl transition-all ${
+                  `flex items-center justify-between px-space-sm py-space-xs rounded-xl transition-all ${
                     isActive
                       ? 'bg-primary-container text-on-primary font-medium shadow-sm'
                       : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                   }`
                 }
               >
-                <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                <span className="font-body-md text-body-md">{item.label}</span>
+                <div className="flex items-center gap-space-xs">
+                  <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                  <span className="font-body-md text-body-md">{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      item.isVerified
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-surface-container-highest text-on-surface-variant'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
@@ -87,19 +111,36 @@ export default function Sidebar() {
               referrerPolicy="no-referrer"
             />
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="font-headline-sm text-body-sm font-semibold text-on-surface truncate">
-                {displayName}
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="font-headline-sm text-body-sm font-semibold text-on-surface truncate">
+                  {displayName}
+                </span>
+                {isVerified && (
+                  <span
+                    title="Account Verified"
+                    className="material-symbols-outlined text-blue-600 text-[16px] shrink-0"
+                  >
+                    verified
+                  </span>
+                )}
+              </div>
               <span className="font-body-sm text-label-sm text-outline truncate">
                 {email}
               </span>
             </div>
           </div>
           <div className="pt-space-2xs flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 px-space-xs py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-              Actively Seeking
-            </span>
+            {isVerified ? (
+              <span className="inline-flex items-center gap-1 px-space-xs py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-label-sm text-[11px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                Verified Account
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-space-xs py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                {profileCompleteness > 0 ? `${profileCompleteness}% Done` : 'Actively Seeking'}
+              </span>
+            )}
             <button
               id="sidebar-logout-btn"
               type="button"

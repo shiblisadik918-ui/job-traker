@@ -7,7 +7,7 @@ import JobTrackLogo from '../common/JobTrackLogo';
 import GlobalSearchBar from '../search/GlobalSearchBar';
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user, userProfile, isVerified, logout } = useAuth();
   const { openAddModal } = useApplicationModal();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -15,9 +15,13 @@ export default function Header() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
-  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Alex Chen';
-  const email = user?.email || 'alex.chen@student.edu';
-  const photoURL = user?.photoURL || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAXaKP8v0P4JJuVOXs6U8SkYcrQ5rsr_Iaxf9xDpFkcmLU5CRhbRdwDu8vg4IJSCdRlCoKkEmJ5sn6V3iUrOoOgeWow6AhBBwFGWA8gfJvVrc0RZ1RQTQmOgQ4I7dYpyzwGMfwwBv5PlRab-DYUVJSZUeuis48OQR6nDOWkKKMz6oshUzfyu6-eqoz9dtd4wfXQk1f-6Nih_zFSdJJ3gNjzX7_NeC79KVQ8V69ZiKQh02_BuqoNwDhY';
+  const displayName =
+    userProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Alex Chen';
+  const email = userProfile?.email || user?.email || 'alex.chen@student.edu';
+  const photoURL =
+    userProfile?.photoURL ||
+    user?.photoURL ||
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
 
   return (
     <>
@@ -89,13 +93,41 @@ export default function Header() {
             {showProfileMenu && (
               <div
                 id="header-profile-dropdown"
-                className="absolute right-0 mt-2 w-56 rounded-2xl bg-surface-container-lowest shadow-xl border border-surface-container-high/60 z-50 p-2 text-xs animate-in fade-in zoom-in-95 duration-150"
+                className="absolute right-0 mt-2 w-60 rounded-2xl bg-surface-container-lowest shadow-xl border border-surface-container-high/60 z-50 p-2 text-xs animate-in fade-in zoom-in-95 duration-150"
                 onClick={() => setShowProfileMenu(false)}
               >
                 <div className="px-3 py-2 border-b border-surface-container mb-1">
-                  <p className="font-semibold text-on-surface truncate">{displayName}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-on-surface truncate">{displayName}</p>
+                    {isVerified && (
+                      <span
+                        title="Verified Account"
+                        className="material-symbols-outlined text-blue-600 text-[16px] shrink-0"
+                      >
+                        verified
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-outline truncate">{email}</p>
+                  {isVerified ? (
+                    <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                      Verified Account
+                    </div>
+                  ) : (
+                    <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium">
+                      Unverified • Complete CV
+                    </div>
+                  )}
                 </div>
+
+                <Link
+                  to="/cv"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-primary font-medium hover:bg-primary-container/20 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">badge</span>
+                  <span>Live CV Builder & Print</span>
+                </Link>
 
                 <Link
                   to="/settings"

@@ -51,18 +51,18 @@ export default function BottomNav() {
           </button>
         </div>
 
-        {/* Stats / Analytics */}
+        {/* Live CV */}
         <NavLink
-          id="mobile-nav-stats"
-          to="/statistics"
+          id="mobile-nav-cv"
+          to="/cv"
           className={({ isActive }) =>
             `flex flex-col items-center justify-center min-w-[56px] h-12 transition-colors ${
               isActive ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'
             }`
           }
         >
-          <span className="material-symbols-outlined text-[24px]">bar_chart</span>
-          <span className="font-label-sm text-label-sm mt-0.5">Stats</span>
+          <span className="material-symbols-outlined text-[24px]">badge</span>
+          <span className="font-label-sm text-label-sm mt-0.5">CV</span>
         </NavLink>
 
         {/* Settings */}

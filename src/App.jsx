@@ -13,6 +13,7 @@ import ApplicationDetail from './pages/ApplicationDetail';
 import Statistics from './pages/Statistics';
 import Reminders from './pages/Reminders';
 import Settings from './pages/Settings';
+import CvBuilder from './pages/CvBuilder';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
                   <Route path="/applications/:id" element={<ApplicationDetail />} />
                   <Route path="/statistics" element={<Statistics />} />
                   <Route path="/reminders" element={<Reminders />} />
+                  <Route path="/cv" element={<CvBuilder />} />
                   <Route path="/settings" element={<Settings />} />
                 </Route>
               </Route>
