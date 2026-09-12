@@ -16,6 +16,7 @@ import { useApplicationModal } from '../context/ApplicationModalContext';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import CsvImportModal from '../components/applications/CsvImportModal';
 import KanbanBoard from '../components/applications/KanbanBoard';
+import ApplicationCardActionModal from '../components/applications/ApplicationCardActionModal';
 import { createReminder } from '../services/remindersService';
 
 export default function Applications() {
@@ -45,6 +46,9 @@ export default function Applications() {
 
   // Stage Quick Change popover state
   const [stagePopoverAppId, setStagePopoverAppId] = useState(null);
+
+  // Application Card Quick Action Modal (Update Status & Delete Record)
+  const [cardActionApp, setCardActionApp] = useState(null);
 
   // Delete Safeguard Modal state
   const [deleteModalApp, setDeleteModalApp] = useState(null);
@@ -624,6 +628,7 @@ export default function Applications() {
                 setDeleteSafeguardChecked(false);
               }}
               onAdd={(defaultStatus) => openAddModal({ status: defaultStatus })}
+              onCardClick={(app) => setCardActionApp(app)}
             />
           </div>
         ) : viewMode === 'grid' ? (
@@ -632,8 +637,9 @@ export default function Applications() {
             {paginatedApps.map((app) => (
               <div
                 key={app.id}
-                onClick={() => navigate(`/applications/${app.id}`)}
-                className="p-space-md rounded-2xl bg-surface-container-lowest border border-surface-container-high/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-space-sm group"
+                onClick={() => setCardActionApp(app)}
+                title="Click to update status or delete record"
+                className="p-space-md rounded-2xl bg-surface-container-lowest border border-surface-container-high/40 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-space-sm group relative"
               >
                 <div className="space-y-space-xs">
                   <div className="flex items-center justify-between">
@@ -731,8 +737,9 @@ export default function Applications() {
               return (
                 <div
                   key={app.id}
-                  onClick={() => navigate(`/applications/${app.id}`)}
-                  className="py-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-sm hover:bg-surface-container-low/40 rounded-xl px-space-xs transition-colors cursor-pointer group"
+                  onClick={() => setCardActionApp(app)}
+                  title="Click to update status or delete record"
+                  className="py-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-sm hover:bg-surface-container-low/60 rounded-xl px-space-xs transition-colors cursor-pointer group"
                 >
                   {/* Left Column: Monogram + Info */}
                   <div className="flex items-start gap-space-sm min-w-0 flex-1">
@@ -1021,6 +1028,29 @@ export default function Applications() {
         isOpen={isCsvImportOpen}
         onClose={() => setIsCsvImportOpen(false)}
         onImportSuccess={fetchApplications}
+      />
+
+      {/* Application Card Quick Action Modal (Update Status / Delete Record) */}
+      <ApplicationCardActionModal
+        isOpen={!!cardActionApp}
+        onClose={() => setCardActionApp(null)}
+        application={cardActionApp}
+        onStatusUpdated={(appId, newStatus) => {
+          setApplications((prev) =>
+            prev.map((a) => (a.id === appId ? { ...a, status: newStatus } : a))
+          );
+          setCardActionApp((prev) =>
+            prev && prev.id === appId ? { ...prev, status: newStatus } : prev
+          );
+        }}
+        onDeleted={(appId) => {
+          setApplications((prev) => prev.filter((a) => a.id !== appId));
+          setCardActionApp(null);
+        }}
+        onEdit={(app) => {
+          setCardActionApp(null);
+          openEditModal(app);
+        }}
       />
     </div>
   );

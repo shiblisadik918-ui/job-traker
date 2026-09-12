@@ -1,11 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import LiveCvPreviewer from './LiveCvPreviewer';
-import { exportCvToPdf } from '../../utils/pdfExport';
+import { exportCvToPdf, generateCvPdfBlob } from '../../utils/pdfExport';
+import { uploadFileToDrive } from '../../services/googleDriveService';
+import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
 
 /**
  * CvPreviewModal Component
  * Displays the Live CV only on-demand when the user clicks Preview.
- * Includes direct PDF download, print, zoom, and auto-fit controls.
+ * Includes direct PDF download, Google Drive direct cloud save, print, zoom, and auto-fit controls.
  */
 export default function CvPreviewModal({
   isOpen,
@@ -15,7 +18,13 @@ export default function CvPreviewModal({
 }) {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isSavingToDrive, setIsSavingToDrive] = useState(false);
+  const [driveSavedUrl, setDriveSavedUrl] = useState(null);
+  const [popupBlocked, setPopupBlocked] = useState(false);
   const modalContentRef = useRef(null);
+
+  const { connectGoogleDrive, getGoogleAccessToken, hasGoogleDriveAccess } = useAuth();
+  const { showSuccess, showError } = useToast();
 
   // Close on Escape key press
   useEffect(() => {
@@ -75,6 +84,59 @@ export default function CvPreviewModal({
     } finally {
       setZoomLevel(prevZoom);
       setIsGeneratingPdf(false);
+    }
+  };
+
+  // Direct Save to User's Personal Google Drive
+  const handleSaveToDrive = async () => {
+    const printableEl = document.getElementById('modal-cv-printable-area');
+    if (!printableEl) return;
+
+    setPopupBlocked(false);
+    setIsSavingToDrive(true);
+    const prevZoom = zoomLevel;
+    setZoomLevel(1);
+
+    try {
+      let token = getGoogleAccessToken();
+      if (!token) {
+        const connectRes = await connectGoogleDrive();
+        if (connectRes?.error) {
+          if (connectRes.rawError?.code === 'auth/popup-blocked') {
+            setPopupBlocked(true);
+          }
+          showError(connectRes.error || 'গুগল অ্যাকাউন্টে সাইন-ইন করতে পারেনি।');
+          setIsSavingToDrive(false);
+          setZoomLevel(prevZoom);
+          return;
+        }
+        token = connectRes?.accessToken || getGoogleAccessToken();
+      }
+
+      if (!token) {
+        showError('Google Drive অ্যাক্সেস টোকেন পাওয়া যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।');
+        setIsSavingToDrive(false);
+        setZoomLevel(prevZoom);
+        return;
+      }
+
+      await new Promise((r) => setTimeout(r, 120));
+
+      const { blob, filename } = await generateCvPdfBlob(
+        'modal-cv-printable-area',
+        data.displayName || 'Candidate'
+      );
+
+      const driveResult = await uploadFileToDrive(token, blob, filename, 'application/pdf');
+
+      setDriveSavedUrl(driveResult.webViewLink || '#');
+      showSuccess(`আপনার সিভি সরাসরি নিজস্ব গুগল ড্রাইভে সংরক্ষিত হয়েছে!`);
+    } catch (err) {
+      console.error('Google Drive save error:', err);
+      showError(err.message || 'গুগল ড্রাইভে সংরক্ষণ করতে ব্যর্থ হয়েছে।');
+    } finally {
+      setZoomLevel(prevZoom);
+      setIsSavingToDrive(false);
     }
   };
 
@@ -195,13 +257,27 @@ export default function CvPreviewModal({
           <button
             type="button"
             onClick={handleDownloadPdf}
-            disabled={isGeneratingPdf}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold text-xs transition-all shadow-md disabled:opacity-50"
+            disabled={isGeneratingPdf || isSavingToDrive}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold text-xs transition-all shadow-md disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-[17px]">
               {isGeneratingPdf ? 'progress_activity' : 'download'}
             </span>
-            <span>{isGeneratingPdf ? 'PDF প্রস্তুত হচ্ছে...' : 'PDF ডাউনলোড করুন'}</span>
+            <span>{isGeneratingPdf ? 'PDF প্রস্তুত হচ্ছে...' : 'PDF ডাউনলোড'}</span>
+          </button>
+
+          {/* Direct Google Drive Cloud Save Button */}
+          <button
+            type="button"
+            onClick={handleSaveToDrive}
+            disabled={isSavingToDrive || isGeneratingPdf}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold text-xs transition-all shadow-md disabled:opacity-50"
+            title="আপনার নিজস্ব গুগল ড্রাইভে সরাসরি সংরক্ষণ করুন"
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7.71 3.5L1.15 15l3.43 6 6.55-11.5-3.42-6zm1.72 6.5l3.43 6h10L19.42 10H9.43zm7.43-6.5l-5.14 9 3.43 6 5.14-9-3.43-6z" />
+            </svg>
+            <span>{isSavingToDrive ? 'ড্রাইভে সেভ হচ্ছে...' : 'Google Drive-এ সেভ'}</span>
           </button>
 
           {/* Native Print Button */}
@@ -225,6 +301,51 @@ export default function CvPreviewModal({
           </button>
         </div>
       </div>
+
+      {/* Success Notification with direct Drive View link */}
+      {driveSavedUrl && (
+        <div className="w-full max-w-4xl mt-3 px-4">
+          <div className="p-3 bg-blue-900/60 border border-blue-500/40 rounded-xl flex items-center justify-between gap-3 text-white text-xs">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-emerald-400 text-[18px]">check_circle</span>
+              <span>আপনার সিভি সরাসরি আপনার ব্যক্তিগত গুগল ড্রাইভে সফলভাবে সংরক্ষিত হয়েছে!</span>
+            </div>
+            <a
+              href={driveSavedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-semibold shrink-0 transition-colors"
+            >
+              <span>ড্রাইভে দেখুন</span>
+              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Popup Blocked Warning */}
+      {popupBlocked && (
+        <div className="w-full max-w-4xl mt-3 px-4">
+          <div className="p-3.5 bg-amber-900/80 border border-amber-500/50 rounded-xl text-amber-200 text-xs space-y-2">
+            <div className="flex items-center gap-2 font-bold text-white">
+              <span className="material-symbols-outlined text-amber-400 text-[18px]">warning</span>
+              <span>ব্রাউজার পপ-আপ ব্লক করেছে (Popup Blocked)</span>
+            </div>
+            <p>
+              আইফ্রেম প্রিভিউতে ব্রাউজার গুগল সাইন-ইন উইন্ডো বন্ধ করে দিতে পারে। সম্পূর্ণ মসৃণভাবে গুগল ড্রাইভ ব্যবহারের জন্য অ্যাপটি নতুন ব্রাউজার ট্যাবে খুলুন:
+            </p>
+            <a
+              href={window.location.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-semibold text-xs transition-colors"
+            >
+              <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+              <span>নতুন ট্যাবে খুলুন (Open in New Tab)</span>
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Modal Content / Printable CV Preview Area */}
       <div

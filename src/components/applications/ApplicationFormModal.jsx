@@ -4,6 +4,14 @@ import {
   JOB_TYPES,
   APPLICATION_SOURCES,
   PRIORITY_LEVELS,
+  JOB_DISTINCTION_TYPES,
+  GOVT_JOB_GRADES,
+  GOVT_PAYMENT_STATUSES,
+  GOVT_ADMIT_CARD_STATUSES,
+  GOVT_STAGE_STATUSES,
+  DEFAULT_GOVT_EXAM_STAGES,
+  PRIVATE_ROUND_STATUSES,
+  DEFAULT_PRIVATE_INTERVIEW_ROUNDS,
 } from '../../utils/constants';
 
 export default function ApplicationFormModal({
@@ -18,7 +26,9 @@ export default function ApplicationFormModal({
   const getTodayString = () => new Date().toISOString().split('T')[0];
 
   const defaultFormState = {
+    job_type: 'Private', // 'Government' | 'Private'
     companyName: '',
+    ministryDepartment: '',
     jobTitle: '',
     companyLogo: '',
     location: '',
@@ -31,9 +41,22 @@ export default function ApplicationFormModal({
     applicationSource: 'LinkedIn',
     salary: '',
     notes: '',
+    
+    // Government specific
+    jobGrade: '9th Grade (First Class / BCS)',
+    circularId: '',
+    applicationFee: '',
+    paymentStatus: 'Pending',
+    admitCardStatus: 'Not Published',
+    userRollNumber: '',
+    govtExamStages: JSON.parse(JSON.stringify(DEFAULT_GOVT_EXAM_STAGES)),
+
+    // Private specific
     recruiterName: '',
     recruiterEmail: '',
     recruiterRole: '',
+    recruiterPhone: '',
+    privateInterviewRounds: JSON.parse(JSON.stringify(DEFAULT_PRIVATE_INTERVIEW_ROUNDS)),
   };
 
   const [formData, setFormData] = useState(defaultFormState);
@@ -41,8 +64,11 @@ export default function ApplicationFormModal({
 
   useEffect(() => {
     if (initialData) {
+      const initialJobType = initialData.job_type || (initialData.ministryDepartment ? 'Government' : 'Private');
       setFormData({
+        job_type: initialJobType,
         companyName: initialData.companyName || '',
+        ministryDepartment: initialData.ministryDepartment || (initialJobType === 'Government' ? initialData.companyName : ''),
         jobTitle: initialData.jobTitle || '',
         companyLogo: initialData.companyLogo || '',
         location: initialData.location || '',
@@ -52,12 +78,29 @@ export default function ApplicationFormModal({
         status: initialData.status || 'Applied',
         priority: initialData.priority || 'Medium',
         deadline: initialData.deadline || '',
-        applicationSource: initialData.applicationSource || 'LinkedIn',
+        applicationSource: initialData.applicationSource || (initialJobType === 'Government' ? 'Govt Official Gazette / Circular' : 'LinkedIn'),
         salary: initialData.salary || '',
         notes: initialData.notes || '',
+        
+        // Govt fields
+        jobGrade: initialData.jobGrade || '9th Grade (First Class / BCS)',
+        circularId: initialData.circularId || '',
+        applicationFee: initialData.applicationFee || '',
+        paymentStatus: initialData.paymentStatus || 'Pending',
+        admitCardStatus: initialData.admitCardStatus || 'Not Published',
+        userRollNumber: initialData.userRollNumber || '',
+        govtExamStages: Array.isArray(initialData.govtExamStages) && initialData.govtExamStages.length > 0
+          ? initialData.govtExamStages
+          : JSON.parse(JSON.stringify(DEFAULT_GOVT_EXAM_STAGES)),
+
+        // Private fields
         recruiterName: initialData.recruiterName || '',
         recruiterEmail: initialData.recruiterEmail || '',
         recruiterRole: initialData.recruiterRole || '',
+        recruiterPhone: initialData.recruiterPhone || '',
+        privateInterviewRounds: Array.isArray(initialData.privateInterviewRounds) && initialData.privateInterviewRounds.length > 0
+          ? initialData.privateInterviewRounds
+          : JSON.parse(JSON.stringify(DEFAULT_PRIVATE_INTERVIEW_ROUNDS)),
       });
     } else {
       setFormData(defaultFormState);
@@ -79,19 +122,72 @@ export default function ApplicationFormModal({
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [name]: value };
+      if (name === 'ministryDepartment' && prev.job_type === 'Government') {
+        updated.companyName = value;
+      }
+      return updated;
+    });
     if (validationErrors[name]) {
       setValidationErrors((prev) => ({ ...prev, [name]: null }));
     }
   };
 
+  const handleJobTypeChange = (newType) => {
+    setFormData((prev) => {
+      const updated = { ...prev, job_type: newType };
+      if (newType === 'Government') {
+        if (!prev.ministryDepartment && prev.companyName) {
+          updated.ministryDepartment = prev.companyName;
+        }
+        if (!prev.applicationSource || prev.applicationSource === 'LinkedIn') {
+          updated.applicationSource = 'Govt Official Gazette / Circular';
+        }
+      } else {
+        if (!prev.companyName && prev.ministryDepartment) {
+          updated.companyName = prev.ministryDepartment;
+        }
+        if (!prev.applicationSource || prev.applicationSource === 'Govt Official Gazette / Circular') {
+          updated.applicationSource = 'LinkedIn';
+        }
+      }
+      return updated;
+    });
+  };
+
+  // Handler for updating a Government Exam Stage
+  const handleGovtStageChange = (index, field, value) => {
+    setFormData((prev) => {
+      const newStages = [...prev.govtExamStages];
+      newStages[index] = { ...newStages[index], [field]: value };
+      return { ...prev, govtExamStages: newStages };
+    });
+  };
+
+  // Handler for updating a Private Interview Round
+  const handlePrivateRoundChange = (index, field, value) => {
+    setFormData((prev) => {
+      const newRounds = [...prev.privateInterviewRounds];
+      newRounds[index] = { ...newRounds[index], [field]: value };
+      return { ...prev, privateInterviewRounds: newRounds };
+    });
+  };
+
   const validate = () => {
     const errors = {};
-    if (!formData.companyName.trim()) {
-      errors.companyName = 'Company name is required';
+    if (formData.job_type === 'Government') {
+      if (!formData.ministryDepartment?.trim()) {
+        errors.ministryDepartment = 'Ministry or Department name is required';
+      }
+    } else {
+      if (!formData.companyName?.trim()) {
+        errors.companyName = 'Company name is required';
+      }
     }
+
     if (!formData.jobTitle.trim()) {
-      errors.jobTitle = 'Job title is required';
+      errors.jobTitle = 'Job title / Position is required';
     }
     if (!formData.applicationDate) {
       errors.applicationDate = 'Application date is required';
@@ -115,12 +211,22 @@ export default function ApplicationFormModal({
       setValidationErrors(errors);
       return;
     }
-    onSave(formData);
+
+    const payload = {
+      ...formData,
+      companyName: formData.job_type === 'Government' 
+        ? (formData.ministryDepartment?.trim() || 'Bangladesh Government')
+        : formData.companyName.trim(),
+    };
+
+    onSave(payload);
   };
 
-  const monogram = formData.companyName
-    ? formData.companyName.trim().slice(0, 2).toUpperCase()
-    : 'JT';
+  const isGovt = formData.job_type === 'Government';
+
+  const monogram = isGovt
+    ? (formData.ministryDepartment ? formData.ministryDepartment.trim().slice(0, 2).toUpperCase() : 'BD')
+    : (formData.companyName ? formData.companyName.trim().slice(0, 2).toUpperCase() : 'JT');
 
   return (
     <div
@@ -139,17 +245,28 @@ export default function ApplicationFormModal({
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-3 border-b border-surface-container">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-fixed text-primary flex items-center justify-center font-bold text-sm tracking-tight shrink-0 shadow-xs">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm tracking-tight shrink-0 shadow-xs ${
+              isGovt ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-primary-fixed text-primary'
+            }`}>
               {monogram}
             </div>
             <div>
-              <h2 id="application-form-modal-title" className="font-headline-sm text-headline-sm text-on-surface">
-                {isEditing ? 'Edit Opportunity' : 'Track New Opportunity'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 id="application-form-modal-title" className="font-headline-sm text-headline-sm text-on-surface">
+                  {isEditing ? 'Edit Job Record' : 'Add New Job Application'}
+                </h2>
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                  isGovt 
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                    : 'bg-blue-50 text-blue-800 border-blue-200'
+                }`}>
+                  {isGovt ? '🏛️ Government Job' : '💼 Private Job'}
+                </span>
+              </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                {isEditing
-                  ? 'Update role metadata, timelines, and candidate notes.'
-                  : 'Record details, set reminders, and initiate your pipeline telemetry.'}
+                {isGovt
+                  ? 'Track Bangladesh Government circulars, grade, admit cards, and sequential exams.'
+                  : 'Track corporate opportunities, HR rounds, technical evaluations, and compensation.'}
               </p>
             </div>
           </div>
@@ -167,52 +284,127 @@ export default function ApplicationFormModal({
 
         {/* Form Body */}
         <form id="application-modal-form" onSubmit={handleSubmit} className="space-y-6">
-          {/* Section 1: Company & Role */}
+          
+          {/* 1. Job Type Switcher */}
+          <div className="bg-surface-container-low p-3 rounded-2xl border border-surface-container-high/60 space-y-2">
+            <label className="block font-label-md text-label-md text-on-surface font-semibold">
+              Select Job Classification <span className="text-error">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                id="btn-job-type-govt"
+                onClick={() => handleJobTypeChange('Government')}
+                className={`py-2.5 px-3 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                  isGovt
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                    : 'bg-surface hover:bg-surface-container text-on-surface border-outline-variant/40'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]">account_balance</span>
+                <span>Government (সরকারি চাকরি)</span>
+              </button>
+              <button
+                type="button"
+                id="btn-job-type-private"
+                onClick={() => handleJobTypeChange('Private')}
+                className={`py-2.5 px-3 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                  !isGovt
+                    ? 'bg-primary-container text-on-primary border-primary shadow-sm'
+                    : 'bg-surface hover:bg-surface-container text-on-surface border-outline-variant/40'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]">corporate_fare</span>
+                <span>Private / MNC (বেসরকারি)</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-on-surface-variant px-1">
+              {isGovt
+                ? 'Shows circular references, pay scale grades, Teletalk SMS payment, and sequential exam stages.'
+                : 'Shows company name, recruiters, salary packages, and sequential interview rounds.'}
+            </p>
+          </div>
+
+          {/* 2. Core Organization & Role Details */}
           <div className="space-y-3.5">
             <h3 className="font-label-sm text-label-sm text-primary uppercase tracking-wider flex items-center gap-1.5 font-bold">
-              <span className="material-symbols-outlined text-[16px]">domain</span>
-              <span>Company & Role</span>
+              <span className="material-symbols-outlined text-[16px]">
+                {isGovt ? 'account_balance' : 'domain'}
+              </span>
+              <span>{isGovt ? 'Ministry / Department & Position' : 'Company & Role'}</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {/* Company Name */}
-              <div>
-                <label
-                  htmlFor="input-company-name"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
-                >
-                  Company Name <span className="text-error">*</span>
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
-                    business
-                  </span>
-                  <input
-                    id="input-company-name"
-                    name="companyName"
-                    type="text"
-                    placeholder="e.g. Stripe, Figma, Vercel"
-                    value={formData.companyName}
-                    onChange={handleChange}
-                    className={`w-full pl-9 pr-3 py-2 bg-surface-container-low border rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${
-                      validationErrors.companyName
-                        ? 'border-error bg-error-container/20'
-                        : 'border-outline-variant/50'
-                    }`}
-                  />
+              {/* Dynamic Org Name: Ministry for Govt / Company for Private */}
+              {isGovt ? (
+                <div>
+                  <label
+                    htmlFor="input-ministry-dept"
+                    className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
+                  >
+                    Ministry / Department / Agency <span className="text-error">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
+                      account_balance
+                    </span>
+                    <input
+                      id="input-ministry-dept"
+                      name="ministryDepartment"
+                      type="text"
+                      placeholder="e.g. BPSC, Bangladesh Bank, Ministry of Finance"
+                      value={formData.ministryDepartment}
+                      onChange={handleChange}
+                      className={`w-full pl-9 pr-3 py-2 bg-surface-container-low border rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${
+                        validationErrors.ministryDepartment
+                          ? 'border-error bg-error-container/20'
+                          : 'border-outline-variant/50'
+                      }`}
+                    />
+                  </div>
+                  {validationErrors.ministryDepartment && (
+                    <p className="text-[11px] text-error mt-1">{validationErrors.ministryDepartment}</p>
+                  )}
                 </div>
-                {validationErrors.companyName && (
-                  <p className="text-[11px] text-error mt-1">{validationErrors.companyName}</p>
-                )}
-              </div>
+              ) : (
+                <div>
+                  <label
+                    htmlFor="input-company-name"
+                    className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
+                  >
+                    Company / Employer Name <span className="text-error">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
+                      business
+                    </span>
+                    <input
+                      id="input-company-name"
+                      name="companyName"
+                      type="text"
+                      placeholder="e.g. bKash, Grameenphone, Brain Station 23"
+                      value={formData.companyName}
+                      onChange={handleChange}
+                      className={`w-full pl-9 pr-3 py-2 bg-surface-container-low border rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${
+                        validationErrors.companyName
+                          ? 'border-error bg-error-container/20'
+                          : 'border-outline-variant/50'
+                      }`}
+                    />
+                  </div>
+                  {validationErrors.companyName && (
+                    <p className="text-[11px] text-error mt-1">{validationErrors.companyName}</p>
+                  )}
+                </div>
+              )}
 
               {/* Job Title */}
               <div>
                 <label
                   htmlFor="input-job-title"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
+                  className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
                 >
-                  Job Title <span className="text-error">*</span>
+                  Job Title / Designation <span className="text-error">*</span>
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
@@ -222,7 +414,7 @@ export default function ApplicationFormModal({
                     id="input-job-title"
                     name="jobTitle"
                     type="text"
-                    placeholder="e.g. Senior Frontend Engineer"
+                    placeholder={isGovt ? 'e.g. Assistant Director, Sub-Inspector' : 'e.g. Senior Frontend Engineer, Product Manager'}
                     value={formData.jobTitle}
                     onChange={handleChange}
                     className={`w-full pl-9 pr-3 py-2 bg-surface-container-low border rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${
@@ -237,13 +429,68 @@ export default function ApplicationFormModal({
                 )}
               </div>
 
+              {/* Government Specific: Job Grade & Circular ID */}
+              {isGovt && (
+                <>
+                  <div>
+                    <label
+                      htmlFor="select-job-grade"
+                      className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
+                    >
+                      Pay Scale Grade
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
+                        military_tech
+                      </span>
+                      <select
+                        id="select-job-grade"
+                        name="jobGrade"
+                        value={formData.jobGrade}
+                        onChange={handleChange}
+                        className="w-full pl-9 pr-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        {GOVT_JOB_GRADES.map((grade) => (
+                          <option key={grade} value={grade}>
+                            {grade}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="input-circular-id"
+                      className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
+                    >
+                      Circular ID / Reference
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
+                        tag
+                      </span>
+                      <input
+                        id="input-circular-id"
+                        name="circularId"
+                        type="text"
+                        placeholder="e.g. 05.00.0000.130.00.001.26-114"
+                        value={formData.circularId}
+                        onChange={handleChange}
+                        className="w-full pl-9 pr-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
               {/* Location */}
               <div>
                 <label
                   htmlFor="input-location"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
+                  className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
                 >
-                  Location / Modality
+                  {isGovt ? 'Posting / Zone Location' : 'Location / Modality'}
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
@@ -253,7 +500,7 @@ export default function ApplicationFormModal({
                     id="input-location"
                     name="location"
                     type="text"
-                    placeholder="e.g. Remote or San Francisco, CA"
+                    placeholder={isGovt ? 'e.g. Dhaka (Head Office) or Any District' : 'e.g. Remote, Hybrid, or Dhaka'}
                     value={formData.location}
                     onChange={handleChange}
                     className="w-full pl-9 pr-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -261,13 +508,13 @@ export default function ApplicationFormModal({
                 </div>
               </div>
 
-              {/* Job Type */}
+              {/* Job Type / Nature */}
               <div>
                 <label
                   htmlFor="select-job-type"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
+                  className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
                 >
-                  Job Type
+                  Employment Nature
                 </label>
                 <select
                   id="select-job-type"
@@ -284,13 +531,13 @@ export default function ApplicationFormModal({
                 </select>
               </div>
 
-              {/* Job URL */}
+              {/* Listing or Circular URL */}
               <div className="sm:col-span-2">
                 <label
                   htmlFor="input-job-url"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
+                  className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
                 >
-                  Job Posting URL
+                  {isGovt ? 'Official Circular / Teletalk URL' : 'Job Posting URL'}
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
@@ -300,7 +547,7 @@ export default function ApplicationFormModal({
                     id="input-job-url"
                     name="jobUrl"
                     type="url"
-                    placeholder="https://company.com/careers/..."
+                    placeholder={isGovt ? 'http://bpsc.teletalk.com.bd or circular notice link' : 'https://company.com/careers/...'}
                     value={formData.jobUrl}
                     onChange={handleChange}
                     className={`w-full pl-9 pr-3 py-2 bg-surface-container-low border rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
@@ -317,21 +564,278 @@ export default function ApplicationFormModal({
             </div>
           </div>
 
-          {/* Section 2: Pipeline Stage & Timeline */}
+          {/* 3. Government Specific: Fees, Payment Status, Admit Card & Roll Number */}
+          {isGovt && (
+            <div className="space-y-3.5 pt-2 border-t border-surface-container">
+              <h3 className="font-label-sm text-label-sm text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 font-bold">
+                <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+                <span>Application Fee, Payment &amp; Admit Card</span>
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Fee */}
+                <div>
+                  <label htmlFor="input-app-fee" className="block font-label-md text-label-md text-on-surface mb-1 font-medium">
+                    Application Fee
+                  </label>
+                  <input
+                    id="input-app-fee"
+                    name="applicationFee"
+                    type="text"
+                    placeholder="e.g. ৳ 500 or ৳ 200"
+                    value={formData.applicationFee}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+
+                {/* Payment Status */}
+                <div>
+                  <label htmlFor="select-payment-status" className="block font-label-md text-label-md text-on-surface mb-1 font-medium">
+                    Payment Status
+                  </label>
+                  <select
+                    id="select-payment-status"
+                    name="paymentStatus"
+                    value={formData.paymentStatus}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    {GOVT_PAYMENT_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Admit Card Status */}
+                <div>
+                  <label htmlFor="select-admit-status" className="block font-label-md text-label-md text-on-surface mb-1 font-medium">
+                    Admit Card
+                  </label>
+                  <select
+                    id="select-admit-status"
+                    name="admitCardStatus"
+                    value={formData.admitCardStatus}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    {GOVT_ADMIT_CARD_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Roll Number / User ID */}
+                <div>
+                  <label htmlFor="input-user-roll" className="block font-label-md text-label-md text-on-surface mb-1 font-medium">
+                    Roll No. / User ID
+                  </label>
+                  <input
+                    id="input-user-roll"
+                    name="userRollNumber"
+                    type="text"
+                    placeholder="e.g. 102458"
+                    value={formData.userRollNumber}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. WORKFLOW SECTION */}
+          {/* A. If Government: Sequential Exam Stages (Prelims -> Written -> Viva -> Final Result) */}
+          {isGovt ? (
+            <div className="space-y-3.5 pt-2 border-t border-surface-container">
+              <div className="flex items-center justify-between">
+                <h3 className="font-label-sm text-label-sm text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 font-bold">
+                  <span className="material-symbols-outlined text-[16px]">checklist</span>
+                  <span>Government Exam Stages (Sequential)</span>
+                </h3>
+                <span className="text-[11px] text-on-surface-variant">Prelims → Written → Viva → Recommendation</span>
+              </div>
+
+              <div className="space-y-2.5">
+                {formData.govtExamStages.map((stage, idx) => (
+                  <div
+                    key={stage.id}
+                    className="p-3 bg-surface-container-low/70 border border-outline-variant/40 rounded-xl space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                        <span className="font-semibold text-sm text-on-surface">{stage.name}</span>
+                        {stage.subtitle && (
+                          <span className="text-xs text-on-surface-variant hidden sm:inline">({stage.subtitle})</span>
+                        )}
+                      </div>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
+                        stage.status === 'Passed'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : stage.status === 'Failed'
+                          ? 'bg-rose-100 text-rose-800 border-rose-300'
+                          : stage.status === 'Appeared'
+                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                          : 'bg-slate-100 text-slate-700 border-slate-300'
+                      }`}>
+                        {stage.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                      {/* Exam Date */}
+                      <div>
+                        <label className="block text-[11px] text-on-surface-variant mb-0.5">Exam Date</label>
+                        <input
+                          type="date"
+                          value={stage.date || ''}
+                          onChange={(e) => handleGovtStageChange(idx, 'date', e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs text-on-surface focus:outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      {/* Center / Venue */}
+                      <div>
+                        <label className="block text-[11px] text-on-surface-variant mb-0.5">Center / Location</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Dhaka College / Agargaon"
+                          value={stage.center || ''}
+                          onChange={(e) => handleGovtStageChange(idx, 'center', e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      {/* Stage Status */}
+                      <div>
+                        <label className="block text-[11px] text-on-surface-variant mb-0.5">Result Status</label>
+                        <select
+                          value={stage.status || 'Pending'}
+                          onChange={(e) => handleGovtStageChange(idx, 'status', e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs text-on-surface focus:outline-none focus:border-primary"
+                        >
+                          {GOVT_STAGE_STATUSES.map((st) => (
+                            <option key={st} value={st}>
+                              {st}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* B. If Private: Sequential Interview Rounds (Phone Screen -> Tech -> HR -> Final Offer) */
+            <div className="space-y-3.5 pt-2 border-t border-surface-container">
+              <div className="flex items-center justify-between">
+                <h3 className="font-label-sm text-label-sm text-primary uppercase tracking-wider flex items-center gap-1.5 font-bold">
+                  <span className="material-symbols-outlined text-[16px]">groups</span>
+                  <span>Interview Rounds Workflow</span>
+                </h3>
+                <span className="text-[11px] text-on-surface-variant">Screening → Tech → HR → Final Offer</span>
+              </div>
+
+              <div className="space-y-2.5">
+                {formData.privateInterviewRounds.map((round, idx) => (
+                  <div
+                    key={round.id}
+                    className="p-3 bg-surface-container-low/70 border border-outline-variant/40 rounded-xl space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-primary-fixed text-primary text-xs font-bold flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                        <span className="font-semibold text-sm text-on-surface">{round.name}</span>
+                        {round.subtitle && (
+                          <span className="text-xs text-on-surface-variant hidden sm:inline">({round.subtitle})</span>
+                        )}
+                      </div>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
+                        round.status === 'Passed'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : round.status === 'Failed'
+                          ? 'bg-rose-100 text-rose-800 border-rose-300'
+                          : round.status === 'Scheduled'
+                          ? 'bg-purple-100 text-purple-800 border-purple-300'
+                          : round.status === 'Completed'
+                          ? 'bg-blue-100 text-blue-800 border-blue-300'
+                          : 'bg-slate-100 text-slate-700 border-slate-300'
+                      }`}>
+                        {round.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                      {/* Round Date */}
+                      <div>
+                        <label className="block text-[11px] text-on-surface-variant mb-0.5">Round Date</label>
+                        <input
+                          type="date"
+                          value={round.date || ''}
+                          onChange={(e) => handlePrivateRoundChange(idx, 'date', e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs text-on-surface focus:outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      {/* Interviewer */}
+                      <div>
+                        <label className="block text-[11px] text-on-surface-variant mb-0.5">Interviewer / Panel</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Lead Engineer / VP Tech"
+                          value={round.interviewer || ''}
+                          onChange={(e) => handlePrivateRoundChange(idx, 'interviewer', e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      {/* Status */}
+                      <div>
+                        <label className="block text-[11px] text-on-surface-variant mb-0.5">Round Status</label>
+                        <select
+                          value={round.status || 'Pending'}
+                          onChange={(e) => handlePrivateRoundChange(idx, 'status', e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-xs text-on-surface focus:outline-none focus:border-primary"
+                        >
+                          {PRIVATE_ROUND_STATUSES.map((st) => (
+                            <option key={st} value={st}>
+                              {st}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 5. General Timeline, Status & Source */}
           <div className="space-y-3.5 pt-2 border-t border-surface-container">
             <h3 className="font-label-sm text-label-sm text-primary uppercase tracking-wider flex items-center gap-1.5 font-bold">
               <span className="material-symbols-outlined text-[16px]">timeline</span>
-              <span>Pipeline Stage &amp; Timeline</span>
+              <span>Overall Pipeline Status &amp; Timeline</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              {/* Status */}
+              {/* Overall Status */}
               <div>
                 <label
                   htmlFor="select-status"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
+                  className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
                 >
-                  Stage <span className="text-error">*</span>
+                  Overall Status <span className="text-error">*</span>
                 </label>
                 <select
                   id="select-status"
@@ -352,9 +856,9 @@ export default function ApplicationFormModal({
               <div>
                 <label
                   htmlFor="input-application-date"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
+                  className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
                 >
-                  Application Date <span className="text-error">*</span>
+                  Applied Date <span className="text-error">*</span>
                 </label>
                 <input
                   id="input-application-date"
@@ -370,7 +874,7 @@ export default function ApplicationFormModal({
               <div>
                 <label
                   htmlFor="select-priority"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
+                  className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
                 >
                   Priority
                 </label>
@@ -393,9 +897,9 @@ export default function ApplicationFormModal({
               <div>
                 <label
                   htmlFor="input-deadline"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
+                  className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
                 >
-                  Deadline / Follow-up
+                  {isGovt ? 'Application Deadline' : 'Deadline / Follow-up'}
                 </label>
                 <input
                   id="input-deadline"
@@ -411,9 +915,9 @@ export default function ApplicationFormModal({
               <div className="sm:col-span-2">
                 <label
                   htmlFor="select-application-source"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
+                  className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
                 >
-                  Application Source
+                  Source / Portal
                 </label>
                 <select
                   id="select-application-source"
@@ -432,105 +936,111 @@ export default function ApplicationFormModal({
             </div>
           </div>
 
-          {/* Section 3: Compensation & Notes */}
+          {/* 6. Compensation & Contacts / Recruiter Info (For Private) or Notes (For Both) */}
           <div className="space-y-3.5 pt-2 border-t border-surface-container">
             <h3 className="font-label-sm text-label-sm text-primary uppercase tracking-wider flex items-center gap-1.5 font-bold">
-              <span className="material-symbols-outlined text-[16px]">attach_money</span>
-              <span>Compensation &amp; Notes</span>
+              <span className="material-symbols-outlined text-[16px]">
+                {isGovt ? 'notes' : 'contact_mail'}
+              </span>
+              <span>{isGovt ? 'Additional Notes' : 'Compensation & Recruiter Contacts'}</span>
             </h3>
 
-            <div>
-              <label
-                htmlFor="input-salary"
-                className="block font-label-md text-label-md text-on-surface mb-1"
-              >
-                Target Compensation / Range
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
-                  payments
-                </span>
-                <input
-                  id="input-salary"
-                  name="salary"
-                  type="text"
-                  placeholder="e.g. $140,000 - $160,000 / yr"
-                  value={formData.salary}
-                  onChange={handleChange}
-                  className="w-full pl-9 pr-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-            </div>
+            {/* If Private: Show Compensation & HR contacts */}
+            {!isGovt && (
+              <>
+                <div>
+                  <label
+                    htmlFor="input-salary"
+                    className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
+                  >
+                    Salary Range / Package
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined text-outline text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
+                      payments
+                    </span>
+                    <input
+                      id="input-salary"
+                      name="salary"
+                      type="text"
+                      placeholder="e.g. ৳ 80,000 - 120,000 / mo or $90,000 / yr"
+                      value={formData.salary}
+                      onChange={handleChange}
+                      className="w-full pl-9 pr-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                </div>
 
-            {/* Recruiter / Contact info */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label
-                  htmlFor="input-recruiter-name"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
-                >
-                  Recruiter Name
-                </label>
-                <input
-                  id="input-recruiter-name"
-                  name="recruiterName"
-                  type="text"
-                  placeholder="e.g. Sarah Jenkins"
-                  value={formData.recruiterName}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label
+                      htmlFor="input-recruiter-name"
+                      className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
+                    >
+                      HR / Recruiter Name
+                    </label>
+                    <input
+                      id="input-recruiter-name"
+                      name="recruiterName"
+                      type="text"
+                      placeholder="e.g. Sarah Khan"
+                      value={formData.recruiterName}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
 
-              <div>
-                <label
-                  htmlFor="input-recruiter-role"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
-                >
-                  Contact Role
-                </label>
-                <input
-                  id="input-recruiter-role"
-                  name="recruiterRole"
-                  type="text"
-                  placeholder="e.g. Talent Partner"
-                  value={formData.recruiterRole}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
+                  <div>
+                    <label
+                      htmlFor="input-recruiter-email"
+                      className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
+                    >
+                      Recruiter Email
+                    </label>
+                    <input
+                      id="input-recruiter-email"
+                      name="recruiterEmail"
+                      type="email"
+                      placeholder="hr@company.com"
+                      value={formData.recruiterEmail}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
 
-              <div>
-                <label
-                  htmlFor="input-recruiter-email"
-                  className="block font-label-md text-label-md text-on-surface mb-1"
-                >
-                  Recruiter Email
-                </label>
-                <input
-                  id="input-recruiter-email"
-                  name="recruiterEmail"
-                  type="email"
-                  placeholder="recruiter@company.com"
-                  value={formData.recruiterEmail}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-            </div>
+                  <div>
+                    <label
+                      htmlFor="input-recruiter-phone"
+                      className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
+                    >
+                      Recruiter Phone
+                    </label>
+                    <input
+                      id="input-recruiter-phone"
+                      name="recruiterPhone"
+                      type="text"
+                      placeholder="+880 1711..."
+                      value={formData.recruiterPhone}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div>
               <label
                 htmlFor="textarea-notes"
-                className="block font-label-md text-label-md text-on-surface mb-1"
+                className="block font-label-md text-label-md text-on-surface mb-1 font-medium"
               >
-                Notes &amp; Candidate Thoughts
+                Notes &amp; Details
               </label>
               <textarea
                 id="textarea-notes"
                 name="notes"
                 rows={3}
-                placeholder="Key team members, interview questions, tech stack requirements, or referral notes..."
+                placeholder={isGovt ? 'Syllabus focus, quota information, reference book notes, or roll number memo...' : 'Tech stack requirements, interviewer feedback, cultural notes, or referral info...'}
                 value={formData.notes}
                 onChange={handleChange}
                 className="w-full p-3 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none leading-relaxed"
@@ -553,12 +1063,16 @@ export default function ApplicationFormModal({
               id="submit-application-btn"
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2.5 bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary active:scale-[0.98] rounded-xl shadow-sm transition-all disabled:opacity-50 min-h-[40px] flex items-center gap-1.5 font-semibold"
+              className={`px-6 py-2.5 font-label-md text-label-md active:scale-[0.98] rounded-xl shadow-sm transition-all disabled:opacity-50 min-h-[40px] flex items-center gap-1.5 font-semibold text-white ${
+                isGovt ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-primary hover:bg-primary-container hover:text-on-primary'
+              }`}
             >
               <span className="material-symbols-outlined text-[18px]">
                 {isEditing ? 'check' : 'add'}
               </span>
-              <span>{isSubmitting ? 'Saving...' : isEditing ? 'Update Opportunity' : 'Save Application'}</span>
+              <span>
+                {isSubmitting ? 'Saving...' : isEditing ? 'Update Opportunity' : isGovt ? 'Save Government Job' : 'Save Private Job'}
+              </span>
             </button>
           </div>
         </form>
@@ -566,3 +1080,4 @@ export default function ApplicationFormModal({
     </div>
   );
 }
+

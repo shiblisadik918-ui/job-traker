@@ -54,6 +54,7 @@ export default function KanbanBoard({
   onEdit,
   onDelete,
   onAdd,
+  onCardClick,
 }) {
   const [draggedAppId, setDraggedAppId] = useState(null);
   const [dragOverColId, setDragOverColId] = useState(null);
@@ -185,7 +186,9 @@ export default function KanbanBoard({
                       id={`kanban-card-${app.id}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, app)}
-                      className={`p-3 rounded-xl bg-surface-container-lowest border border-surface-container-high/40 shadow-xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing group space-y-2 ${
+                      onClick={() => onCardClick && onCardClick(app)}
+                      title="Click to update status or delete record"
+                      className={`p-3 rounded-xl bg-surface-container-lowest border border-surface-container-high/40 shadow-xs hover:shadow-md hover:border-primary/40 transition-all cursor-pointer group space-y-2 ${
                         isBeingDragged ? 'opacity-40 scale-95 border-dashed border-primary' : ''
                       } ${isMoving ? 'animate-pulse' : ''}`}
                     >
@@ -275,6 +278,7 @@ export default function KanbanBoard({
 
                           <Link
                             to={`/applications/${app.id}`}
+                            onClick={(e) => e.stopPropagation()}
                             className="p-1 text-outline hover:text-primary transition-colors"
                             title="Open application"
                           >
@@ -283,7 +287,10 @@ export default function KanbanBoard({
 
                           <button
                             type="button"
-                            onClick={() => onEdit(app)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit(app);
+                            }}
                             className="p-1 text-outline hover:text-on-surface transition-colors"
                             title="Edit details"
                           >
@@ -292,7 +299,10 @@ export default function KanbanBoard({
 
                           <button
                             type="button"
-                            onClick={() => onDelete(app)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(app);
+                            }}
                             className="p-1 text-outline hover:text-error transition-colors"
                             title="Delete"
                           >

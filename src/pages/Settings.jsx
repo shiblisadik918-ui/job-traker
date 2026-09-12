@@ -8,6 +8,7 @@ import { getUserProfileData, updateUserProfileData } from '../services/authServi
 import { calculateProfileCompleteness, SAMPLE_CV_DATA } from '../utils/profileVerification';
 import CsvImportModal from '../components/applications/CsvImportModal';
 import CvPreviewModal from '../components/cv/CvPreviewModal';
+import GoogleDriveStorageManager from '../components/drive/GoogleDriveStorageManager';
 
 export default function Settings() {
   const { user, logout } = useAuth();
@@ -827,6 +828,9 @@ export default function Settings() {
           })}
         </div>
       </div>
+
+      {/* Google Drive Direct Cloud Storage Card */}
+      <GoogleDriveStorageManager />
 
       {/* Data Management (CSV Export & Import) Card */}
       <div

@@ -20,6 +20,10 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { getFriendlyErrorMessage } from '../firebase/errorHandler';
+import {
+  DEFAULT_GOVT_EXAM_STAGES,
+  DEFAULT_PRIVATE_INTERVIEW_ROUNDS,
+} from '../utils/constants';
 
 /**
  * Helper to ensure user is authenticated before performing operations
@@ -60,22 +64,50 @@ export async function createApplication(applicationData) {
           },
         ];
 
+    const jobType = applicationData.job_type || (applicationData.ministryDepartment ? 'Government' : 'Private');
+    const companyOrMinistry = jobType === 'Government'
+      ? (applicationData.ministryDepartment?.trim() || applicationData.companyName?.trim() || 'Bangladesh Government')
+      : (applicationData.companyName?.trim() || '');
+
     const newDoc = {
       id: appRef.id,
       userId,
-      companyName: applicationData.companyName?.trim() || '',
+      job_type: jobType,
+      companyName: companyOrMinistry,
       companyLogo: applicationData.companyLogo?.trim() || '',
       jobTitle: applicationData.jobTitle?.trim() || '',
       location: applicationData.location?.trim() || '',
       jobType: applicationData.jobType || 'Full-time',
       applicationDate: applicationData.applicationDate || todayDateStr,
       deadline: applicationData.deadline || '',
-      applicationSource: applicationData.applicationSource || 'LinkedIn',
+      applicationSource: applicationData.applicationSource || (jobType === 'Government' ? 'Govt Official Gazette / Circular' : 'LinkedIn'),
       salary: applicationData.salary?.trim() || '',
       jobUrl: applicationData.jobUrl?.trim() || '',
       status: initialStatus,
       priority: applicationData.priority || 'Medium',
       notes: applicationData.notes?.trim() || '',
+
+      // Government Job Specific Fields
+      ministryDepartment: applicationData.ministryDepartment?.trim() || (jobType === 'Government' ? companyOrMinistry : ''),
+      jobGrade: applicationData.jobGrade?.trim() || '',
+      circularId: applicationData.circularId?.trim() || '',
+      applicationFee: applicationData.applicationFee?.trim() || '',
+      paymentStatus: applicationData.paymentStatus || 'Pending',
+      admitCardStatus: applicationData.admitCardStatus || 'Not Published',
+      userRollNumber: applicationData.userRollNumber?.trim() || '',
+      govtExamStages: Array.isArray(applicationData.govtExamStages) && applicationData.govtExamStages.length > 0
+        ? applicationData.govtExamStages
+        : (jobType === 'Government' ? DEFAULT_GOVT_EXAM_STAGES : []),
+
+      // Private Job Specific Fields
+      recruiterName: applicationData.recruiterName?.trim() || '',
+      recruiterEmail: applicationData.recruiterEmail?.trim() || '',
+      recruiterRole: applicationData.recruiterRole?.trim() || '',
+      recruiterPhone: applicationData.recruiterPhone?.trim() || '',
+      privateInterviewRounds: Array.isArray(applicationData.privateInterviewRounds) && applicationData.privateInterviewRounds.length > 0
+        ? applicationData.privateInterviewRounds
+        : (jobType === 'Private' ? DEFAULT_PRIVATE_INTERVIEW_ROUNDS : []),
+
       timeline: initialTimeline,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -379,6 +411,84 @@ export async function deleteRecruiterInfo(applicationId) {
     });
 
     return { success: true, error: null };
+  } catch (error) {
+    return {
+      success: false,
+      error: getFriendlyErrorMessage(error),
+    };
+  }
+}
+
+/**
+ * Update a specific Government Exam Stage (Prelims, Written, Viva, Final Result)
+ */
+export async function updateGovtExamStage(applicationId, stageId, stageUpdate) {
+  try {
+    const userId = getAuthenticatedUserId();
+    const docRef = doc(db, 'users', userId, 'applications', applicationId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { success: false, error: 'Application record not found.' };
+    }
+
+    const appData = docSnap.data();
+    const currentStages = Array.isArray(appData.govtExamStages) && appData.govtExamStages.length > 0
+      ? [...appData.govtExamStages]
+      : [...DEFAULT_GOVT_EXAM_STAGES];
+
+    const updatedStages = currentStages.map((stage) => {
+      if (stage.id === stageId) {
+        return { ...stage, ...stageUpdate };
+      }
+      return stage;
+    });
+
+    await updateDoc(docRef, {
+      govtExamStages: updatedStages,
+      updatedAt: serverTimestamp(),
+    });
+
+    return { success: true, stages: updatedStages, error: null };
+  } catch (error) {
+    return {
+      success: false,
+      error: getFriendlyErrorMessage(error),
+    };
+  }
+}
+
+/**
+ * Update a specific Private Job Interview Round (Phone Screen, Tech, HR, Final Offer)
+ */
+export async function updatePrivateInterviewRound(applicationId, roundId, roundUpdate) {
+  try {
+    const userId = getAuthenticatedUserId();
+    const docRef = doc(db, 'users', userId, 'applications', applicationId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { success: false, error: 'Application record not found.' };
+    }
+
+    const appData = docSnap.data();
+    const currentRounds = Array.isArray(appData.privateInterviewRounds) && appData.privateInterviewRounds.length > 0
+      ? [...appData.privateInterviewRounds]
+      : [...DEFAULT_PRIVATE_INTERVIEW_ROUNDS];
+
+    const updatedRounds = currentRounds.map((round) => {
+      if (round.id === roundId) {
+        return { ...round, ...roundUpdate };
+      }
+      return round;
+    });
+
+    await updateDoc(docRef, {
+      privateInterviewRounds: updatedRounds,
+      updatedAt: serverTimestamp(),
+    });
+
+    return { success: true, rounds: updatedRounds, error: null };
   } catch (error) {
     return {
       success: false,

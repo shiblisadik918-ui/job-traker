@@ -35,8 +35,9 @@ export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getA
 // Authentication Instance
 export const auth = getAuth(app);
 
-// Google Auth Provider
+// Google Auth Provider with Google Drive File scope
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
 googleProvider.setCustomParameters({
   prompt: 'select_account',
 });

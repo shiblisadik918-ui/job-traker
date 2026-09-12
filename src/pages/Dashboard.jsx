@@ -8,6 +8,7 @@ import { useApplicationModal } from '../context/ApplicationModalContext';
 import { formatDisplayDate } from '../utils/constants';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import CalendarExportButtons from '../components/common/CalendarExportButtons';
+import ApplicationCardActionModal from '../components/applications/ApplicationCardActionModal';
 
 export default function Dashboard() {
   const { user, userProfile, isVerified, profileCompleteness } = useAuth();
@@ -20,6 +21,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [schedulingFollowUpId, setSchedulingFollowUpId] = useState(null);
 
+  // Application Card Quick Action Modal (Update Status & Delete Record)
+  const [cardActionApp, setCardActionApp] = useState(null);
+
   // Delete modal state
   const [appToDelete, setAppToDelete] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -28,6 +32,8 @@ export default function Dashboard() {
   // Tab and filter states
   const [activeTab, setActiveTab] = useState('all'); // all, action, review, offers
   const [selectedPipelineStatus, setSelectedPipelineStatus] = useState(null);
+  const [jobTypeFilter, setJobTypeFilter] = useState('All'); // 'All' | 'Government' | 'Private'
+  const [workflowStageFilter, setWorkflowStageFilter] = useState('All');
   const [roleFilter, setRoleFilter] = useState('All');
   const [locationFilter, setLocationFilter] = useState('All');
   const [sortBy, setSortBy] = useState('newest');
@@ -80,16 +86,153 @@ export default function Dashboard() {
     return () => window.removeEventListener('jobtrack:application-changed', handleAppChanged);
   }, [loadData]);
 
-  // Calculations from actual Firestore applications
+  // Calculations from actual Firestore applications segmented by job type
+  const govtApps = useMemo(() => {
+    return applications.filter((a) => a.job_type === 'Government' || Boolean(a.ministryDepartment));
+  }, [applications]);
+
+  const privateApps = useMemo(() => {
+    return applications.filter((a) => a.job_type !== 'Government' && !a.ministryDepartment);
+  }, [applications]);
+
+  // Active scope based on selected jobTypeFilter
+  const scopedApps = useMemo(() => {
+    if (jobTypeFilter === 'Government') return govtApps;
+    if (jobTypeFilter === 'Private') return privateApps;
+    return applications;
+  }, [jobTypeFilter, govtApps, privateApps, applications]);
+
   const totalApplications = applications.length;
-  const appliedCount = applications.filter((a) => a.status === 'Applied').length;
-  const shortlistedCount = applications.filter((a) => a.status === 'Shortlisted').length;
-  const interviewApps = applications.filter((a) => a.status === 'Interview');
+  const scopedTotal = scopedApps.length;
+  const appliedCount = scopedApps.filter((a) => a.status === 'Applied').length;
+  const shortlistedCount = scopedApps.filter((a) => a.status === 'Shortlisted').length;
+  const interviewApps = scopedApps.filter((a) => a.status === 'Interview');
   const interviewCount = interviewApps.length;
-  const offerApps = applications.filter((a) => a.status === 'Offer');
+  const nextInterview = interviewApps[0];
+  const offerApps = scopedApps.filter((a) => a.status === 'Offer');
   const offerCount = offerApps.length;
-  const rejectedCount = applications.filter((a) => a.status === 'Rejected').length;
-  const savedCount = applications.filter((a) => a.status === 'Saved').length;
+  const rejectedCount = scopedApps.filter((a) => a.status === 'Rejected').length;
+  const savedCount = scopedApps.filter((a) => a.status === 'Saved').length;
+
+  // Specific Government Job Metrics
+  const govtExamProgressApps = useMemo(() => {
+    return govtApps.filter((a) => {
+      const stages = a.govtExamStages || [];
+      const hasActiveStage = stages.some((s) => s.status === 'Pending' && s.date);
+      return a.status === 'Interview' || hasActiveStage;
+    });
+  }, [govtApps]);
+
+  const govtAdmitCardReadyCount = useMemo(() => {
+    return govtApps.filter((a) => {
+      const s = (a.admitCardStatus || '').toLowerCase();
+      return s.includes('download') || s.includes('available') || s.includes('issued');
+    }).length;
+  }, [govtApps]);
+
+  const govtFeePaidCount = useMemo(() => {
+    return govtApps.filter((a) => (a.paymentStatus || '').toLowerCase().includes('paid')).length;
+  }, [govtApps]);
+
+  const govtFeePendingCount = useMemo(() => {
+    return govtApps.filter((a) => (a.paymentStatus || '').toLowerCase().includes('pending')).length;
+  }, [govtApps]);
+
+  // Stage-specific count helpers for Govt & Private
+  const govtPrelimsCount = useMemo(() => {
+    return govtApps.filter((a) => (a.govtExamStages || []).find((s) => s.id === 'prelims')?.status === 'Pending').length;
+  }, [govtApps]);
+  const govtWrittenCount = useMemo(() => {
+    return govtApps.filter((a) => (a.govtExamStages || []).find((s) => s.id === 'written')?.status === 'Pending').length;
+  }, [govtApps]);
+  const govtVivaCount = useMemo(() => {
+    return govtApps.filter((a) => (a.govtExamStages || []).find((s) => s.id === 'viva')?.status === 'Pending').length;
+  }, [govtApps]);
+  const govtFinalPassedCount = useMemo(() => {
+    return govtApps.filter((a) => (a.govtExamStages || []).find((s) => s.id === 'final')?.status === 'Passed' || a.status === 'Offer').length;
+  }, [govtApps]);
+
+  // Specific Private Job Metrics
+  const privateInterviewCount = useMemo(() => {
+    return privateApps.filter((a) => a.status === 'Interview').length;
+  }, [privateApps]);
+
+  const privateOfferCount = useMemo(() => {
+    return privateApps.filter((a) => a.status === 'Offer').length;
+  }, [privateApps]);
+
+  const privateShortlistedCount = useMemo(() => {
+    return privateApps.filter((a) => a.status === 'Shortlisted').length;
+  }, [privateApps]);
+
+  // Upcoming Event (Exam or Interview) Finder
+  const upcomingEvent = useMemo(() => {
+    let candidate = null;
+
+    // Search Govt exam stages
+    if (jobTypeFilter !== 'Private') {
+      govtApps.forEach((app) => {
+        (app.govtExamStages || []).forEach((st) => {
+          if (st.date && st.status === 'Pending') {
+            const eventDate = new Date(st.date);
+            if (!candidate || eventDate < new Date(candidate.date)) {
+              candidate = {
+                type: 'Government',
+                app,
+                title: `${st.name} • ${app.companyName}`,
+                stageName: st.name,
+                date: st.date,
+                location: st.center || app.location || 'Exam Center TBA',
+                details: `Ministry: ${app.ministryDepartment || 'Govt Dept'} • Grade: ${app.jobGrade || '9th Grade'} • Roll: ${app.rollNumber || 'Assigned'}`,
+                badge: app.admitCardStatus || 'Admit Card Issued',
+                notes: app.notes,
+              };
+            }
+          }
+        });
+      });
+    }
+
+    // Search Private interview rounds
+    if (jobTypeFilter !== 'Government') {
+      privateApps.forEach((app) => {
+        (app.privateInterviewRounds || []).forEach((rd) => {
+          if (rd.date && rd.status === 'Pending') {
+            const eventDate = new Date(rd.date);
+            if (!candidate || eventDate < new Date(candidate.date)) {
+              candidate = {
+                type: 'Private',
+                app,
+                title: `${rd.name} with ${app.companyName}`,
+                stageName: rd.name,
+                date: rd.date,
+                location: rd.interviewer ? `Interviewer: ${rd.interviewer}` : 'Virtual Interview / Video Call',
+                details: `Package: ${app.salary || 'Competitive'} • Recruiter: ${app.recruiterName || 'HR Team'}`,
+                badge: app.applicationSource ? `via ${app.applicationSource}` : 'Direct Referral',
+                notes: app.notes,
+              };
+            }
+          }
+        });
+
+        if (!candidate && app.status === 'Interview') {
+          candidate = {
+            type: 'Private',
+            app,
+            title: `Interview Round with ${app.companyName}`,
+            stageName: 'Interview Round',
+            date: app.deadline || app.applicationDate,
+            location: app.location || 'Virtual / Google Meet',
+            details: `Role: ${app.jobTitle} • Package: ${app.salary || 'Negotiable'}`,
+            badge: 'Interview Scheduled',
+            notes: app.notes,
+          };
+        }
+      });
+    }
+
+    return candidate;
+  }, [jobTypeFilter, govtApps, privateApps]);
 
   // Active target calculation: target is 5 applications this week
   const weeklyTarget = 5;
@@ -102,72 +245,134 @@ export default function Dashboard() {
   }).length;
   const targetPercent = Math.min(100, Math.round((sentThisWeek / weeklyTarget) * 100)) || 60;
 
-  // Next interview candidate
-  const nextInterview = interviewApps[0] || null;
-
-  // 1-Click Starter Seed Helper for Zero State
+  // 1-Click Starter Seed Helper for Zero State (Featuring both Govt & Private Bangladesh jobs)
   const handleSeedDemoData = async () => {
     setIsSeeding(true);
     const demoItems = [
       {
-        companyName: 'Figma',
-        jobTitle: 'Senior Frontend Engineer',
-        location: 'San Francisco, CA',
-        jobType: 'Full-time',
+        job_type: 'Government',
+        companyName: 'BPSC - Bangladesh Public Service Commission',
+        jobTitle: '47th BCS Examination (General Cadre)',
+        ministryDepartment: 'Ministry of Public Administration',
+        jobGrade: '9th Grade',
+        circularId: 'BPSC-47/2026-CADRE-01',
+        applicationFee: '৳700',
+        paymentStatus: 'Paid (Teletalk SMS)',
+        admitCardStatus: 'Download Available',
+        rollNumber: '204981',
+        location: 'Dhaka, Bangladesh',
         status: 'Interview',
         priority: 'High',
-        applicationDate: new Date().toISOString().split('T')[0],
-        salary: '$175,000 - $195,000 / yr',
-        notes: 'Technical Interview with Figma • Systems Architecture & Canvas Rendering',
-        jobUrl: 'https://figma.com/careers',
+        applicationDate: new Date(Date.now() - 20 * 86400000).toISOString().split('T')[0],
+        deadline: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+        notes: 'Preliminary MCQ Exam scheduled at Eden Mohila College Center. Focus on Bangladesh Affairs, English, and Math.',
+        govtExamStages: [
+          {
+            id: 'prelims',
+            name: 'Preliminary Exam (MCQ)',
+            status: 'Pending',
+            date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+            center: 'Eden Mohila College, Azimpur, Dhaka',
+          },
+          { id: 'written', name: 'Written Examination', status: 'Pending', date: '', center: 'Dhaka University Campus' },
+          { id: 'viva', name: 'Viva-Voce / Practical', status: 'Pending', date: '', center: 'BPSC Head Office, Agargaon' },
+          { id: 'final', name: 'Final Recommendation', status: 'Pending', date: '', center: '' },
+        ],
       },
       {
-        companyName: 'Stripe',
-        jobTitle: 'Product Designer - Billing',
-        location: 'Remote, US',
-        jobType: 'Full-time',
+        job_type: 'Government',
+        companyName: 'Bangladesh Bank (Central Bank)',
+        jobTitle: 'Assistant Director (General)',
+        ministryDepartment: 'Bangladesh Bank Bankers Selection Committee',
+        jobGrade: '9th Grade',
+        circularId: 'BB-AD-2026-REC-04',
+        applicationFee: '৳200',
+        paymentStatus: 'Paid (Online/bKash)',
+        admitCardStatus: 'Downloaded',
+        rollNumber: '110542',
+        location: 'Motijheel, Dhaka',
+        status: 'Interview',
+        priority: 'High',
+        applicationDate: new Date(Date.now() - 35 * 86400000).toISOString().split('T')[0],
+        deadline: new Date(Date.now() + 28 * 86400000).toISOString().split('T')[0],
+        notes: 'Passed Preliminary Exam with score 82/100! Written examination scheduled for next month at BUET.',
+        govtExamStages: [
+          {
+            id: 'prelims',
+            name: 'Preliminary Exam (MCQ)',
+            status: 'Passed',
+            date: new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0],
+            center: 'Govt. Titumir College, Dhaka',
+          },
+          {
+            id: 'written',
+            name: 'Written Examination',
+            status: 'Pending',
+            date: new Date(Date.now() + 28 * 86400000).toISOString().split('T')[0],
+            center: 'BUET ECE Building, Dhaka',
+          },
+          { id: 'viva', name: 'Viva-Voce / Practical', status: 'Pending', date: '', center: 'BB Head Office, Motijheel' },
+          { id: 'final', name: 'Final Recommendation', status: 'Pending', date: '', center: '' },
+        ],
+      },
+      {
+        job_type: 'Private',
+        companyName: 'bKash Limited',
+        jobTitle: 'Senior Software Engineer (Backend / Distributed Systems)',
+        salary: '৳150,000 - ৳185,000 / mo',
+        recruiterName: 'Tanzim Ahmed (Head of Talent Acquisition)',
+        applicationSource: 'BDjobs',
+        location: 'Dhaka (Shadhinata Tower, Jahangir Gate)',
+        status: 'Interview',
+        priority: 'High',
+        applicationDate: new Date(Date.now() - 12 * 86400000).toISOString().split('T')[0],
+        deadline: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
+        notes: 'Passed technical coding assessment. System Design round scheduled via Google Meet.',
+        privateInterviewRounds: [
+          { id: 'phone', name: 'Phone Screening', status: 'Passed', date: new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0], interviewer: 'Tanzim Ahmed' },
+          { id: 'tech', name: 'Technical Round / System Design', status: 'Pending', date: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0], interviewer: 'Principal Architect & VP Eng' },
+          { id: 'hr', name: 'HR / Behavioral Round', status: 'Pending', date: '', interviewer: 'HR Business Partner' },
+          { id: 'offer', name: 'Final Offer Discussion', status: 'Pending', date: '', interviewer: 'CTO' },
+        ],
+      },
+      {
+        job_type: 'Private',
+        companyName: 'Figma',
+        jobTitle: 'Senior Frontend Engineer (Systems & Canvas)',
+        salary: '$175,000 - $195,000 / yr',
+        recruiterName: 'Sarah Jenkins (Figma EMEA)',
+        applicationSource: 'LinkedIn',
+        location: 'Remote, US/Worldwide',
         status: 'Offer',
         priority: 'High',
-        applicationDate: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
-        salary: '$165,000 - $185,000 / yr',
-        notes: 'Offer package received • $175k Base + $60k RSUs. Decision deadline in 5 days.',
-        jobUrl: 'https://stripe.com/jobs',
+        applicationDate: new Date(Date.now() - 25 * 86400000).toISOString().split('T')[0],
+        deadline: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
+        notes: 'Offer package extended: $185k Base + $60k RSUs. Decision deadline in 5 business days.',
+        privateInterviewRounds: [
+          { id: 'phone', name: 'Phone Screening', status: 'Passed', date: new Date(Date.now() - 20 * 86400000).toISOString().split('T')[0], interviewer: 'Sarah Jenkins' },
+          { id: 'tech', name: 'Technical Round (Deep Dive & Canvas)', status: 'Passed', date: new Date(Date.now() - 12 * 86400000).toISOString().split('T')[0], interviewer: 'Staff Engineer' },
+          { id: 'hr', name: 'Values & Team Fit', status: 'Passed', date: new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0], interviewer: 'Engineering Director' },
+          { id: 'offer', name: 'Final Offer Discussion', status: 'Passed', date: new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0], interviewer: 'VP of Product' },
+        ],
       },
       {
-        companyName: 'Linear',
-        jobTitle: 'Product Engineer',
-        location: 'Remote',
-        jobType: 'Full-time',
+        job_type: 'Private',
+        companyName: 'Pathao',
+        jobTitle: 'Product Designer (Fintech & Payments)',
+        salary: '৳95,000 - ৳125,000 / mo',
+        recruiterName: 'Farhana Kabir (People Ops)',
+        applicationSource: 'LinkedIn',
+        location: 'Dhaka, Bangladesh',
         status: 'Shortlisted',
-        priority: 'High',
-        applicationDate: new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0],
-        salary: '$160,000 - $190,000 / yr',
-        notes: 'Hiring manager screening scheduled for Friday at 11:00 AM.',
-        jobUrl: 'https://linear.app/careers',
-      },
-      {
-        companyName: 'Vercel',
-        jobTitle: 'Developer Advocate',
-        location: 'Remote, US',
-        jobType: 'Full-time',
-        status: 'Applied',
         priority: 'Medium',
-        applicationDate: new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0],
-        salary: '$150,000 - $170,000 / yr',
-        notes: 'Application submitted via team referral. Awaiting recruiter outreach.',
-        jobUrl: 'https://vercel.com/careers',
-      },
-      {
-        companyName: 'Notion',
-        jobTitle: 'Core Infrastructure Engineer',
-        location: 'San Francisco, CA',
-        jobType: 'Full-time',
-        status: 'Interview',
-        priority: 'Medium',
-        applicationDate: new Date(Date.now() - 12 * 86400000).toISOString().split('T')[0],
-        salary: '$180,000 - $210,000 / yr',
-        notes: 'Round 2 interview with Engineering Lead.',
-        jobUrl: 'https://notion.so/careers',
+        applicationDate: new Date(Date.now() - 8 * 86400000).toISOString().split('T')[0],
+        notes: 'Portfolio review completed. Recruiter confirmed initial screening call next Tuesday.',
+        privateInterviewRounds: [
+          { id: 'phone', name: 'Portfolio Review Screening', status: 'Pending', date: new Date(Date.now() + 4 * 86400000).toISOString().split('T')[0], interviewer: 'Design Lead' },
+          { id: 'tech', name: 'Design Challenge Presentation', status: 'Pending', date: '', interviewer: 'Product Design Team' },
+          { id: 'hr', name: 'Culture Fit Round', status: 'Pending', date: '', interviewer: 'People Operations' },
+          { id: 'offer', name: 'Final Offer Discussion', status: 'Pending', date: '', interviewer: 'Head of Product' },
+        ],
       },
     ];
 
@@ -175,7 +380,7 @@ export default function Dashboard() {
       for (const item of demoItems) {
         await createApplication(item);
       }
-      showSuccess('Loaded demo applications into your pipeline!');
+      showSuccess('Loaded realistic Bangladesh Govt & Private opportunities into your pipeline!');
       loadData();
     } catch (err) {
       showError('Failed to populate demo data.');
@@ -188,44 +393,68 @@ export default function Dashboard() {
     let newApp = null;
     const today = new Date().toISOString().split('T')[0];
 
-    if (templateType === 'linkedin') {
+    if (templateType === 'govt') {
       newApp = {
-        companyName: 'Anthropic',
-        jobTitle: 'Research Platform Engineer',
-        location: 'San Francisco, CA',
-        jobType: 'Full-time',
+        job_type: 'Government',
+        companyName: 'Bangladesh Public Service Commission (BPSC)',
+        jobTitle: 'Assistant Director / General Officer',
+        ministryDepartment: 'Ministry of Planning',
+        jobGrade: '9th Grade',
+        circularId: `BPSC-${today.slice(0, 4)}-CIRCULAR`,
+        applicationFee: '৳700',
+        paymentStatus: 'Pending',
+        admitCardStatus: 'Not Published',
+        location: 'Dhaka, Bangladesh',
         status: 'Applied',
         priority: 'High',
         applicationDate: today,
-        applicationSource: 'LinkedIn',
-        salary: '$190,000 - $240,000 / yr',
-        notes: 'Easy Apply on LinkedIn with tailored systems resume.',
+        notes: 'Official application submitted via Teletalk portal. Awaiting SMS fee payment confirmation.',
+        govtExamStages: [
+          { id: 'prelims', name: 'Preliminary Exam (MCQ)', status: 'Pending', date: '', center: '' },
+          { id: 'written', name: 'Written Examination', status: 'Pending', date: '', center: '' },
+          { id: 'viva', name: 'Viva-Voce / Practical', status: 'Pending', date: '', center: '' },
+          { id: 'final', name: 'Final Recommendation', status: 'Pending', date: '', center: '' },
+        ],
       };
-    } else if (templateType === 'recruiter') {
+    } else if (templateType === 'private_tech') {
       newApp = {
-        companyName: 'OpenAI',
-        jobTitle: 'Fullstack UI Engineer',
-        location: 'San Francisco, CA',
-        jobType: 'Full-time',
-        status: 'Shortlisted',
+        job_type: 'Private',
+        companyName: 'bKash Limited',
+        jobTitle: 'Fullstack Software Engineer',
+        salary: '৳130,000 - ৳160,000 / mo',
+        recruiterName: 'Talent Acquisition Team',
+        applicationSource: 'BDjobs',
+        location: 'Dhaka, Bangladesh',
+        status: 'Applied',
         priority: 'High',
         applicationDate: today,
-        applicationSource: 'Recruiter Outreach',
-        salary: '$200,000 - $260,000 / yr',
-        notes: 'Recruiter reached out via email. Screening call booked for next week.',
+        notes: 'Application submitted for core fintech payments platform team.',
+        privateInterviewRounds: [
+          { id: 'phone', name: 'Phone Screening', status: 'Pending', date: '', interviewer: '' },
+          { id: 'tech', name: 'Technical Interview', status: 'Pending', date: '', interviewer: '' },
+          { id: 'hr', name: 'HR Round', status: 'Pending', date: '', interviewer: '' },
+          { id: 'offer', name: 'Final Offer', status: 'Pending', date: '', interviewer: '' },
+        ],
       };
     } else {
       newApp = {
-        companyName: 'Airbnb',
+        job_type: 'Private',
+        companyName: 'Figma',
         jobTitle: 'Senior Frontend Engineer',
-        location: 'Remote, US',
-        jobType: 'Full-time',
+        salary: '$160,000 - $190,000 / yr',
+        recruiterName: 'Recruiter Outreach',
+        applicationSource: 'LinkedIn',
+        location: 'Remote',
         status: 'Saved',
         priority: 'Medium',
         applicationDate: today,
-        applicationSource: 'Company Career Site',
-        salary: '$175,000 - $205,000 / yr',
-        notes: 'Wishlist position. Working on portfolio updates before applying.',
+        notes: 'Target role for Q4 cycle. Polish portfolio before official submission.',
+        privateInterviewRounds: [
+          { id: 'phone', name: 'Phone Screening', status: 'Pending', date: '', interviewer: '' },
+          { id: 'tech', name: 'Technical Interview', status: 'Pending', date: '', interviewer: '' },
+          { id: 'hr', name: 'HR Round', status: 'Pending', date: '', interviewer: '' },
+          { id: 'offer', name: 'Final Offer', status: 'Pending', date: '', interviewer: '' },
+        ],
       };
     }
 
@@ -238,10 +467,56 @@ export default function Dashboard() {
     }
   };
 
-  // Filtered recent applications
+  // Filtered recent applications respecting job_type and specific workflow stages
   const filteredApplications = useMemo(() => {
     return applications
       .filter((app) => {
+        // Job type distinction filter
+        if (jobTypeFilter === 'Government') {
+          if (app.job_type !== 'Government' && !app.ministryDepartment) return false;
+        } else if (jobTypeFilter === 'Private') {
+          if (app.job_type === 'Government' || Boolean(app.ministryDepartment)) return false;
+        }
+
+        // Specific workflow stage filter
+        if (workflowStageFilter !== 'All') {
+          if (jobTypeFilter === 'Government' || app.job_type === 'Government') {
+            const stages = app.govtExamStages || [];
+            if (workflowStageFilter === 'prelims') {
+              const st = stages.find((s) => s.id === 'prelims');
+              if (!st || st.status !== 'Pending') return false;
+            } else if (workflowStageFilter === 'written') {
+              const st = stages.find((s) => s.id === 'written');
+              if (!st || st.status !== 'Pending') return false;
+            } else if (workflowStageFilter === 'viva') {
+              const st = stages.find((s) => s.id === 'viva');
+              if (!st || st.status !== 'Pending') return false;
+            } else if (workflowStageFilter === 'final') {
+              const st = stages.find((s) => s.id === 'final');
+              if ((!st || st.status !== 'Passed') && app.status !== 'Offer') return false;
+            } else if (workflowStageFilter === 'admit_ready') {
+              const s = (app.admitCardStatus || '').toLowerCase();
+              if (!s.includes('download') && !s.includes('available')) return false;
+            } else if (workflowStageFilter === 'fee_pending') {
+              if ((app.paymentStatus || '').toLowerCase() !== 'pending') return false;
+            }
+          } else {
+            const rounds = app.privateInterviewRounds || [];
+            if (workflowStageFilter === 'phone_screen') {
+              const r = rounds.find((s) => s.id === 'phone');
+              if (!r || r.status !== 'Pending') return false;
+            } else if (workflowStageFilter === 'tech_round') {
+              const r = rounds.find((s) => s.id === 'tech');
+              if (!r || r.status !== 'Pending') return false;
+            } else if (workflowStageFilter === 'hr_round') {
+              const r = rounds.find((s) => s.id === 'hr');
+              if (!r || r.status !== 'Pending') return false;
+            } else if (workflowStageFilter === 'offer_round') {
+              if (app.status !== 'Offer') return false;
+            }
+          }
+        }
+
         // Tab filtering
         if (activeTab === 'action' && app.status !== 'Interview' && app.priority !== 'High') return false;
         if (activeTab === 'review' && app.status !== 'Applied' && app.status !== 'Shortlisted') return false;
@@ -250,8 +525,11 @@ export default function Dashboard() {
         // Pipeline pill filter
         if (selectedPipelineStatus && app.status !== selectedPipelineStatus) return false;
 
-        // Role filter
-        if (roleFilter !== 'All' && !(app.jobTitle || '').toLowerCase().includes(roleFilter.toLowerCase())) return false;
+        // Role / Designation filter
+        if (roleFilter !== 'All') {
+          const combinedTitle = `${app.jobTitle || ''} ${app.ministryDepartment || ''}`.toLowerCase();
+          if (!combinedTitle.includes(roleFilter.toLowerCase())) return false;
+        }
 
         // Location filter
         if (locationFilter !== 'All' && !(app.location || '').toLowerCase().includes(locationFilter.toLowerCase())) return false;
@@ -270,7 +548,7 @@ export default function Dashboard() {
         }
         return 0;
       });
-  }, [applications, activeTab, selectedPipelineStatus, roleFilter, locationFilter, sortBy]);
+  }, [applications, jobTypeFilter, workflowStageFilter, activeTab, selectedPipelineStatus, roleFilter, locationFilter, sortBy]);
 
   // 1-Click Automatic Follow-up Scheduler
   const handleAutoScheduleFollowUp = async (e, app) => {
@@ -493,39 +771,39 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md">
             <button
               type="button"
-              onClick={() => handleCreateTemplate('linkedin')}
-              className="p-space-md rounded-2xl bg-surface-container-lowest border border-surface-container hover:border-primary/40 hover:shadow-md transition-all text-left group"
+              onClick={() => handleCreateTemplate('govt')}
+              className="p-space-md rounded-2xl bg-surface-container-lowest border border-surface-container hover:border-emerald-500/40 hover:shadow-md transition-all text-left group"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-xs">
-                  in
+                <span className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                  🏛️
                 </span>
-                <span className="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px]">
+                <span className="material-symbols-outlined text-outline group-hover:text-emerald-600 transition-colors text-[18px]">
                   arrow_forward
                 </span>
               </div>
-              <h4 className="font-label-md text-on-surface font-semibold">Applied via LinkedIn</h4>
+              <h4 className="font-label-md text-on-surface font-semibold">Bangladesh Govt Job</h4>
               <p className="font-body-sm text-[12px] text-on-surface-variant mt-0.5">
-                Quick-log an opportunity with LinkedIn source tag and applied status.
+                BPSC 9th Grade officer circular with sequential Preliminary, Written, and Viva stages.
               </p>
             </button>
 
             <button
               type="button"
-              onClick={() => handleCreateTemplate('recruiter')}
+              onClick={() => handleCreateTemplate('private_tech')}
               className="p-space-md rounded-2xl bg-surface-container-lowest border border-surface-container hover:border-primary/40 hover:shadow-md transition-all text-left group"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[18px]">mark_email_read</span>
+                <span className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">domain</span>
                 </span>
                 <span className="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px]">
                   arrow_forward
                 </span>
               </div>
-              <h4 className="font-label-md text-on-surface font-semibold">Recruiter Reached Out</h4>
+              <h4 className="font-label-md text-on-surface font-semibold">Private Tech / MNC</h4>
               <p className="font-body-sm text-[12px] text-on-surface-variant mt-0.5">
-                Record an inbound recruiter message with screening date &amp; salary notes.
+                Log a role at bKash or MNC with BDjobs/LinkedIn source, recruiter info, and rounds.
               </p>
             </button>
 
@@ -535,7 +813,7 @@ export default function Dashboard() {
               className="p-space-md rounded-2xl bg-surface-container-lowest border border-surface-container hover:border-primary/40 hover:shadow-md transition-all text-left group"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <span className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center">
                   <span className="material-symbols-outlined text-[18px]">bookmark</span>
                 </span>
                 <span className="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px]">
@@ -544,7 +822,7 @@ export default function Dashboard() {
               </div>
               <h4 className="font-label-md text-on-surface font-semibold">Dream Company Wishlist</h4>
               <p className="font-body-sm text-[12px] text-on-surface-variant mt-0.5">
-                Save an exciting target role to research and prep before submitting.
+                Save an upcoming target role to research and prepare before applying.
               </p>
             </button>
           </div>
@@ -564,14 +842,14 @@ export default function Dashboard() {
           <div className="flex items-center gap-space-xs">
             <span className="inline-flex items-center gap-1.5 px-space-xs py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-              Dashboard Overview • Fall 2026 Cycle
+              Dual Pipeline • Bangladesh Govt &amp; Private Jobs
             </span>
           </div>
           <h1 className="font-display-lg-mobile md:font-display-lg text-on-surface font-bold tracking-tight">
-            Keep your career journey organized.
+            Track your career opportunities with precision.
           </h1>
           <p className="font-body-md text-body-md text-on-surface-variant max-w-2xl leading-relaxed">
-            Track your applications, follow your progress, and never lose an opportunity.
+            Monitor Bangladesh Government exam stages (Prelims, Written, Viva) and Private interview pipelines in one unified workspace.
           </p>
         </div>
 
@@ -671,338 +949,467 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 4 Compact Statistic Cards */}
+      {/* Segmented Job Type Distinction Filter Bar */}
+      <div
+        id="dashboard-job-type-selector"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm p-space-sm rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30"
+      >
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary text-[20px]">filter_alt</span>
+          <span className="font-label-md text-xs font-bold uppercase tracking-wider text-outline">
+            Pipeline Scope:
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-container overflow-x-auto">
+          <button
+            type="button"
+            id="scope-filter-all"
+            onClick={() => {
+              setJobTypeFilter('All');
+              setWorkflowStageFilter('All');
+            }}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-label-md text-xs transition-all whitespace-nowrap ${
+              jobTypeFilter === 'All'
+                ? 'bg-surface-container-lowest text-on-surface font-bold shadow-xs'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span>All Opportunities</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-surface-container-high text-[10px] font-semibold">
+              {totalApplications}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="scope-filter-govt"
+            onClick={() => {
+              setJobTypeFilter('Government');
+              setWorkflowStageFilter('All');
+            }}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-label-md text-xs transition-all whitespace-nowrap ${
+              jobTypeFilter === 'Government'
+                ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10'
+            }`}
+          >
+            <span>🏛️ Bangladesh Govt Jobs</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                jobTypeFilter === 'Government' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+              }`}
+            >
+              {govtApps.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="scope-filter-private"
+            onClick={() => {
+              setJobTypeFilter('Private');
+              setWorkflowStageFilter('All');
+            }}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-label-md text-xs transition-all whitespace-nowrap ${
+              jobTypeFilter === 'Private'
+                ? 'bg-blue-600 text-white font-bold shadow-xs'
+                : 'text-blue-700 dark:text-blue-400 hover:bg-blue-500/10'
+            }`}
+          >
+            <span>💼 Private &amp; MNC Roles</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                jobTypeFilter === 'Private' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
+              }`}
+            >
+              {privateApps.length}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* 4 Context-Aware Statistic Cards */}
       <section
         id="dashboard-statistics-row"
         className="grid grid-cols-2 lg:grid-cols-4 gap-space-md"
       >
-        {/* Total Applications */}
-        <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-space-xs">
-            <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
-              Total Applications
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-primary-fixed text-primary flex items-center justify-center">
-              <span className="material-symbols-outlined text-[18px]">business_center</span>
+        {jobTypeFilter === 'Government' ? (
+          <>
+            {/* Govt Card 1: Total Govt Circulars */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-emerald-500/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">
+                  Govt Circulars
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">account_balance</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {govtApps.length}
+              </div>
+              <div className="font-body-sm text-body-sm text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
+                BPSC &amp; Ministries
+              </div>
             </div>
-          </div>
-          <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
-            {totalApplications}
-          </div>
-          <div className="font-body-sm text-body-sm text-outline mt-0.5">
-            +{sentThisWeek || 3} this week
-          </div>
-        </div>
 
-        {/* Applied */}
-        <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-space-xs">
-            <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
-              Applied
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-surface-container-highest text-on-primary-fixed-variant flex items-center justify-center">
-              <span className="material-symbols-outlined text-[18px]">send</span>
+            {/* Govt Card 2: Active Exam Stages */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">
+                  Exam Stages Active
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">history_edu</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {govtExamProgressApps.length}
+              </div>
+              <div className="font-body-sm text-body-sm text-outline mt-0.5">
+                {govtPrelimsCount} Prelims • {govtWrittenCount} Written • {govtVivaCount} Viva
+              </div>
             </div>
-          </div>
-          <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
-            {appliedCount}
-          </div>
-          <div className="font-body-sm text-body-sm text-outline mt-0.5">
-            Awaiting initial review
-          </div>
-        </div>
 
-        {/* Interviewing */}
-        <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-space-xs">
-            <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
-              Interviewing
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-tertiary-fixed text-tertiary flex items-center justify-center">
-              <span className="material-symbols-outlined text-[18px]">record_voice_over</span>
+            {/* Govt Card 3: Admit Card Status */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">
+                  Admit Cards Ready
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">assignment_ind</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {govtAdmitCardReadyCount}
+              </div>
+              <div className="font-body-sm text-body-sm text-blue-600 font-medium mt-0.5">
+                Download &amp; roll verified
+              </div>
             </div>
-          </div>
-          <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
-            {interviewCount}
-          </div>
-          <div className="font-body-sm text-body-sm text-tertiary font-medium mt-0.5 truncate">
-            {nextInterview ? `${nextInterview.companyName} scheduled` : 'Ready for round 1'}
-          </div>
-        </div>
 
-        {/* Offers Extended */}
-        <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-space-xs">
-            <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
-              Offers Extended
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center">
-              <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+            {/* Govt Card 4: Fee Payment Status */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">
+                  Application Fee Status
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">payments</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {govtFeePaidCount} Paid
+              </div>
+              <div className="font-body-sm text-body-sm text-outline mt-0.5">
+                {govtFeePendingCount > 0 ? `${govtFeePendingCount} pending via SMS` : 'All application fees paid'}
+              </div>
             </div>
-          </div>
-          <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
-            {offerCount}
-          </div>
-          <div className="font-body-sm text-body-sm text-secondary font-medium mt-0.5">
-            {offerCount > 0 ? 'Decide by next week' : 'Targeting 2 offers'}
-          </div>
-        </div>
-      </section>
+          </>
+        ) : jobTypeFilter === 'Private' ? (
+          <>
+            {/* Private Card 1: Total Private Applications */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-blue-500/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">
+                  Private &amp; MNC Roles
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">domain</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {privateApps.length}
+              </div>
+              <div className="font-body-sm text-body-sm text-blue-600 font-medium mt-0.5">
+                Tech, Startups &amp; MNCs
+              </div>
+            </div>
 
-      {/* Application Pipeline Overview Section */}
-      <section
-        id="dashboard-pipeline-overview"
-        className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 space-y-space-sm"
-      >
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-space-xs">
-            <span className="material-symbols-outlined text-primary text-[20px]">waterfall_chart</span>
-            <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-              Application Pipeline Overview
-            </h2>
-          </div>
-          <span className="font-body-sm text-body-sm text-outline">
-            Total active: {totalApplications} records
-          </span>
-        </div>
+            {/* Private Card 2: Interviewing Pipeline */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">
+                  Interview Pipeline
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-tertiary-fixed text-tertiary flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">record_voice_over</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {privateInterviewCount}
+              </div>
+              <div className="font-body-sm text-body-sm text-tertiary font-medium mt-0.5">
+                Screening, Tech &amp; HR rounds
+              </div>
+            </div>
 
-        {/* Proportional Segmented Progression Bar */}
-        <div className="w-full h-2.5 rounded-full bg-surface-container flex overflow-hidden">
-          {savedPct > 0 && (
-            <div
-              style={{ width: `${savedPct}%` }}
-              className="h-full bg-outline transition-all duration-500"
-              title={`Saved: ${savedCount}`}
-            />
-          )}
-          {appliedPct > 0 && (
-            <div
-              style={{ width: `${appliedPct}%` }}
-              className="h-full bg-primary-container transition-all duration-500"
-              title={`Applied: ${appliedCount}`}
-            />
-          )}
-          {shortlistedPct > 0 && (
-            <div
-              style={{ width: `${shortlistedPct}%` }}
-              className="h-full bg-tertiary-container transition-all duration-500"
-              title={`Shortlisted: ${shortlistedCount}`}
-            />
-          )}
-          {interviewPct > 0 && (
-            <div
-              style={{ width: `${interviewPct}%` }}
-              className="h-full bg-primary transition-all duration-500"
-              title={`Interview: ${interviewCount}`}
-            />
-          )}
-          {offerPct > 0 && (
-            <div
-              style={{ width: `${offerPct}%` }}
-              className="h-full bg-secondary transition-all duration-500"
-              title={`Offered: ${offerCount}`}
-            />
-          )}
-          {rejectedPct > 0 && (
-            <div
-              style={{ width: `${rejectedPct}%` }}
-              className="h-full bg-error transition-all duration-500"
-              title={`Archived: ${rejectedCount}`}
-            />
-          )}
-        </div>
+            {/* Private Card 3: Offers Received */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">
+                  Offers Received
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {privateOfferCount}
+              </div>
+              <div className="font-body-sm text-body-sm text-secondary font-medium mt-0.5">
+                {privateOfferCount > 0 ? 'Review compensation package' : 'Targeting 2 offers'}
+              </div>
+            </div>
 
-        {/* Filter/Status Interactive Pills */}
-        <div className="flex flex-wrap items-center gap-space-xs pt-1">
-          <button
-            type="button"
-            onClick={() => setSelectedPipelineStatus(null)}
-            className={`px-space-xs py-0.5 rounded-full font-label-sm text-label-sm transition-all flex items-center gap-1.5 ${
-              selectedPipelineStatus === null
-                ? 'bg-primary-container text-on-primary font-semibold shadow-2xs'
-                : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-            }`}
-          >
-            All Stages ({totalApplications})
-          </button>
+            {/* Private Card 4: In Review / Shortlisted */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">
+                  In Review &amp; Shortlisted
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-primary-fixed text-primary flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">manage_search</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {appliedCount + shortlistedCount}
+              </div>
+              <div className="font-body-sm text-body-sm text-outline mt-0.5">
+                Awaiting recruiter callback
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Card 1: Total Applications */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
+                  Total Applications
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-primary-fixed text-primary flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">business_center</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {totalApplications}
+              </div>
+              <div className="font-body-sm text-body-sm text-outline mt-0.5">
+                +{sentThisWeek || 3} this week
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setSelectedPipelineStatus(selectedPipelineStatus === 'Saved' ? null : 'Saved')}
-            className={`px-space-xs py-0.5 rounded-full font-label-sm text-label-sm transition-all flex items-center gap-1.5 ${
-              selectedPipelineStatus === 'Saved'
-                ? 'bg-outline text-white font-semibold'
-                : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-outline"></span>
-            Saved ({savedCount})
-          </button>
+            {/* Card 2: Govt Job Track */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
+                  🏛️ Govt Track
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">account_balance</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {govtApps.length}
+              </div>
+              <div className="font-body-sm text-body-sm text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
+                {govtExamProgressApps.length} active exam stages
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setSelectedPipelineStatus(selectedPipelineStatus === 'Applied' ? null : 'Applied')}
-            className={`px-space-xs py-0.5 rounded-full font-label-sm text-label-sm transition-all flex items-center gap-1.5 ${
-              selectedPipelineStatus === 'Applied'
-                ? 'bg-primary-container text-on-primary font-semibold'
-                : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
-            Applied ({appliedCount})
-          </button>
+            {/* Card 3: Private / MNC Track */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
+                  💼 Private Track
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">domain</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {privateApps.length}
+              </div>
+              <div className="font-body-sm text-body-sm text-blue-600 font-medium mt-0.5">
+                {privateInterviewCount} in interview stages
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setSelectedPipelineStatus(selectedPipelineStatus === 'Shortlisted' ? null : 'Shortlisted')}
-            className={`px-space-xs py-0.5 rounded-full font-label-sm text-label-sm transition-all flex items-center gap-1.5 ${
-              selectedPipelineStatus === 'Shortlisted'
-                ? 'bg-tertiary-container text-on-tertiary font-semibold'
-                : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
-            Shortlisted ({shortlistedCount})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedPipelineStatus(selectedPipelineStatus === 'Interview' ? null : 'Interview')}
-            className={`px-space-xs py-0.5 rounded-full font-label-sm text-label-sm transition-all flex items-center gap-1.5 ${
-              selectedPipelineStatus === 'Interview'
-                ? 'bg-primary text-on-primary font-semibold'
-                : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-            Interview ({interviewCount})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedPipelineStatus(selectedPipelineStatus === 'Offer' ? null : 'Offer')}
-            className={`px-space-xs py-0.5 rounded-full font-label-sm text-label-sm transition-all flex items-center gap-1.5 ${
-              selectedPipelineStatus === 'Offer'
-                ? 'bg-secondary text-on-secondary font-semibold'
-                : 'bg-surface-container-low text-on-secondary-container hover:bg-surface-container'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-            Offered ({offerCount})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedPipelineStatus(selectedPipelineStatus === 'Rejected' ? null : 'Rejected')}
-            className={`px-space-xs py-0.5 rounded-full font-label-sm text-label-sm transition-all flex items-center gap-1.5 ${
-              selectedPipelineStatus === 'Rejected'
-                ? 'bg-error text-on-error font-semibold'
-                : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-error"></span>
-            Archived ({rejectedCount})
-          </button>
-        </div>
+            {/* Card 4: Offers Extended */}
+            <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-xs">
+                <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">
+                  Offers &amp; Final
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                </div>
+              </div>
+              <div className="font-headline-lg text-headline-lg font-bold text-on-surface">
+                {offerCount}
+              </div>
+              <div className="font-body-sm text-body-sm text-secondary font-medium mt-0.5">
+                {offerCount > 0 ? 'Decide next steps' : 'Targeting 2 offers'}
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       {/* 2-Column Split: Next Interview Urgent Card & Weekly Focus Advisor */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-        {/* Next Interview Card */}
-        <div
-          id="dashboard-next-interview-card"
-          className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between space-y-space-sm"
-        >
-          <div className="space-y-space-xs">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-space-xs py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
-                {nextInterview ? 'Upcoming Interview Round' : 'Interview Prep Mode'}
-              </span>
-              <span className="font-body-sm text-body-sm text-outline">
-                {nextInterview ? 'Google Meet / Live Code' : 'Calendar synced'}
-              </span>
+        {/* Next Interview / Exam Stage Card */}
+        {(() => {
+          const activeEvent = upcomingEvent || (nextInterview ? {
+            type: 'Private',
+            app: nextInterview,
+            title: `${nextInterview.jobTitle} with ${nextInterview.companyName}`,
+            stageName: 'Interview Round',
+            date: nextInterview.deadline || nextInterview.applicationDate,
+            location: nextInterview.location || 'Google Meet / Live Code',
+            details: `Package: ${nextInterview.salary || 'Competitive'} • Recruiter: ${nextInterview.recruiterName || 'HR Team'}`,
+            badge: 'Interview Scheduled',
+            notes: nextInterview.notes,
+          } : null);
+
+          return (
+            <div
+              id="dashboard-next-interview-card"
+              className="p-space-md rounded-2xl bg-surface-container-lowest shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] border border-surface-container-high/30 flex flex-col justify-between space-y-space-sm"
+            >
+              <div className="space-y-space-xs">
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-space-xs py-0.5 rounded-full font-label-sm text-label-sm font-semibold ${
+                      activeEvent?.type === 'Government'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : 'bg-error-container text-on-error-container'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full animate-ping ${
+                        activeEvent?.type === 'Government' ? 'bg-emerald-600' : 'bg-error'
+                      }`}
+                    ></span>
+                    {activeEvent
+                      ? activeEvent.type === 'Government'
+                        ? `🏛️ Upcoming Govt Exam: ${activeEvent.stageName}`
+                        : `💼 Upcoming Interview: ${activeEvent.stageName}`
+                      : 'Interview / Exam Prep Mode'}
+                  </span>
+                  <span className="font-body-sm text-body-sm text-outline">
+                    {activeEvent?.date ? formatDisplayDate(activeEvent.date) : 'Calendar synced'}
+                  </span>
+                </div>
+
+                {activeEvent ? (
+                  <div className="flex items-start gap-space-sm pt-space-2xs">
+                    <div
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${getMonogramStyle(
+                        activeEvent.app?.companyName || activeEvent.title
+                      )}`}
+                    >
+                      {getMonogram(activeEvent.app?.companyName || activeEvent.title)}
+                    </div>
+                    <div className="min-w-0 space-y-0.5">
+                      <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold truncate">
+                        {activeEvent.title}
+                      </h3>
+                      <div className="flex items-center gap-2 text-[12px] text-outline flex-wrap font-medium">
+                        <span className="flex items-center gap-1 text-on-surface-variant font-semibold">
+                          <span className="material-symbols-outlined text-[14px]">
+                            {activeEvent.type === 'Government' ? 'location_city' : 'videocam'}
+                          </span>
+                          <span>{activeEvent.location}</span>
+                        </span>
+                        <span>•</span>
+                        <span>{activeEvent.details}</span>
+                      </div>
+                      <p className="font-body-sm text-[12px] text-on-surface-variant mt-0.5 line-clamp-2">
+                        {activeEvent.notes ||
+                          (activeEvent.type === 'Government'
+                            ? 'Review circular syllabus, admit card printout, and previous years BPSC questions.'
+                            : 'System Design & Algorithm Round. Review key architectural concepts.')}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-space-xs rounded-xl bg-surface-container-low flex items-center gap-space-sm">
+                    <span className="material-symbols-outlined text-primary text-[28px]">event_available</span>
+                    <div>
+                      <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                        No immediate exams or interviews scheduled
+                      </h3>
+                      <p className="font-body-sm text-[12px] text-on-surface-variant">
+                        Submit new applications or update exam stage dates to monitor upcoming deadlines.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-space-xs pt-space-xs border-t border-surface-container-high/30 flex-wrap">
+                {activeEvent ? (
+                  <>
+                    <CalendarExportButtons
+                      title={activeEvent.title}
+                      description={activeEvent.notes || activeEvent.details}
+                      date={activeEvent.date}
+                      variant="compact"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(activeEvent.app)}
+                      className="p-1.5 rounded-xl text-outline hover:text-on-surface hover:bg-surface-container transition-colors"
+                      title="Edit application details"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/applications/${activeEvent.app?.id}`)}
+                      className="px-space-sm py-1.5 rounded-xl text-on-surface-variant font-label-md text-label-md hover:bg-surface-container transition-colors font-medium"
+                    >
+                      {activeEvent.type === 'Government' ? 'Exam Workflow' : 'Prep Notes'}
+                    </button>
+                    {activeEvent.type === 'Private' ? (
+                      <a
+                        href={activeEvent.app?.jobUrl || '#'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-space-md py-1.5 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-colors flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">videocam</span>
+                        <span>Join Meeting</span>
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/applications/${activeEvent.app?.id}`)}
+                        className="px-space-md py-1.5 rounded-xl bg-emerald-600 text-white font-label-md text-label-md hover:bg-emerald-700 transition-colors flex items-center gap-1 font-semibold"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">assignment</span>
+                        <span>View Stages</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openAddModal}
+                    className="px-space-md py-1.5 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-colors flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    <span>Track Application</span>
+                  </button>
+                )}
+              </div>
             </div>
-
-            {nextInterview ? (
-              <div className="flex items-start gap-space-sm pt-space-2xs">
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${getMonogramStyle(
-                    nextInterview.companyName
-                  )}`}
-                >
-                  {getMonogram(nextInterview.companyName)}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold truncate">
-                    {nextInterview.jobTitle} with {nextInterview.companyName}
-                  </h3>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 line-clamp-2">
-                    {nextInterview.notes || 'System Design & Algorithm Round. Review key architectural concepts.'}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="p-space-xs rounded-xl bg-surface-container-low flex items-center gap-space-sm">
-                <span className="material-symbols-outlined text-primary text-[28px]">event_available</span>
-                <div>
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                    No interviews on the immediate schedule
-                  </h3>
-                  <p className="font-body-sm text-[12px] text-on-surface-variant">
-                    Submit 2-3 new applications to maintain healthy callback velocity.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-end gap-space-xs pt-space-xs border-t border-surface-container-high/30 flex-wrap">
-            {nextInterview ? (
-              <>
-                <CalendarExportButtons
-                  title={`${nextInterview.companyName} Interview (${nextInterview.jobTitle})`}
-                  description={nextInterview.notes || `Interview with ${nextInterview.companyName}`}
-                  date={nextInterview.deadline || nextInterview.applicationDate}
-                  variant="compact"
-                />
-                <button
-                  type="button"
-                  onClick={() => openEditModal(nextInterview)}
-                  className="p-1.5 rounded-xl text-outline hover:text-on-surface hover:bg-surface-container transition-colors"
-                  title="Edit interview application details"
-                >
-                  <span className="material-symbols-outlined text-[18px]">edit</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/applications/${nextInterview.id}`)}
-                  className="px-space-sm py-1.5 rounded-xl text-on-surface-variant font-label-md text-label-md hover:bg-surface-container transition-colors"
-                >
-                  Prep Notes
-                </button>
-                <a
-                  href={nextInterview.jobUrl || '#'}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-space-md py-1.5 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-colors flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-[16px]">videocam</span>
-                  <span>Join Meeting</span>
-                </a>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={openAddModal}
-                className="px-space-md py-1.5 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-colors flex items-center gap-1"
-              >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                <span>Track Application</span>
-              </button>
-            )}
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Weekly Focus Career Assistant Card */}
         <div
@@ -1111,17 +1518,79 @@ export default function Dashboard() {
         {/* Filter Controls Row */}
         <div className="flex flex-wrap items-center justify-between gap-space-xs pt-1 text-xs">
           <div className="flex flex-wrap items-center gap-space-xs">
+            {/* Job Type Filter Dropdown */}
+            <select
+              id="filter-job-type-select"
+              value={jobTypeFilter}
+              onChange={(e) => {
+                setJobTypeFilter(e.target.value);
+                setWorkflowStageFilter('All');
+              }}
+              className="px-2.5 py-1.5 bg-surface-container-low rounded-xl font-body-sm text-[12px] text-on-surface border border-outline-variant/40 focus:outline-none font-medium"
+            >
+              <option value="All">All Types ({totalApplications})</option>
+              <option value="Government">🏛️ Govt Circulars ({govtApps.length})</option>
+              <option value="Private">💼 Private &amp; MNC ({privateApps.length})</option>
+            </select>
+
+            {/* Workflow Stage Filter Dropdown */}
+            <select
+              id="filter-workflow-stage-select"
+              value={workflowStageFilter}
+              onChange={(e) => setWorkflowStageFilter(e.target.value)}
+              className="px-2.5 py-1.5 bg-surface-container-low rounded-xl font-body-sm text-[12px] text-on-surface border border-outline-variant/40 focus:outline-none font-medium"
+            >
+              {jobTypeFilter === 'Government' ? (
+                <>
+                  <option value="All">All Exam Stages</option>
+                  <option value="prelims">Preliminary Exam ({govtPrelimsCount})</option>
+                  <option value="written">Written Exam ({govtWrittenCount})</option>
+                  <option value="viva">Viva-Voce ({govtVivaCount})</option>
+                  <option value="final">Final Recommendation ({govtFinalPassedCount})</option>
+                  <option value="admit_ready">Admit Card Released ({govtAdmitCardReadyCount})</option>
+                  <option value="fee_pending">Fee Pending ({govtFeePendingCount})</option>
+                </>
+              ) : jobTypeFilter === 'Private' ? (
+                <>
+                  <option value="All">All Interview Rounds</option>
+                  <option value="phone_screen">Phone Screen</option>
+                  <option value="tech_round">Technical Round</option>
+                  <option value="hr_round">HR Round</option>
+                  <option value="offer_round">Offers ({privateOfferCount})</option>
+                </>
+              ) : (
+                <>
+                  <option value="All">All Workflow Stages</option>
+                  <optgroup label="Government Exam Stages">
+                    <option value="prelims">Govt: Preliminary Exam</option>
+                    <option value="written">Govt: Written Exam</option>
+                    <option value="viva">Govt: Viva-Voce</option>
+                    <option value="final">Govt: Final Recommendation</option>
+                    <option value="admit_ready">Govt: Admit Card Released</option>
+                    <option value="fee_pending">Govt: Fee Pending</option>
+                  </optgroup>
+                  <optgroup label="Private Interview Rounds">
+                    <option value="phone_screen">Private: Phone Screen</option>
+                    <option value="tech_round">Private: Technical Round</option>
+                    <option value="hr_round">Private: HR Round</option>
+                    <option value="offer_round">Private: Offer Discussions</option>
+                  </optgroup>
+                </>
+              )}
+            </select>
+
             {/* Role Filter */}
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               className="px-2.5 py-1.5 bg-surface-container-low rounded-xl font-body-sm text-[12px] text-on-surface border border-outline-variant/40 focus:outline-none"
             >
-              <option value="All">All Roles</option>
+              <option value="All">All Designations</option>
+              <option value="Cadre">BCS / Cadre</option>
+              <option value="Officer">Officer</option>
+              <option value="Engineer">Engineering / Tech</option>
               <option value="Frontend">Frontend</option>
-              <option value="Engineer">Engineering</option>
-              <option value="Designer">Design</option>
-              <option value="Product">Product</option>
+              <option value="Product">Product / Analyst</option>
             </select>
 
             {/* Location / Modality */}
@@ -1131,9 +1600,10 @@ export default function Dashboard() {
               className="px-2.5 py-1.5 bg-surface-container-low rounded-xl font-body-sm text-[12px] text-on-surface border border-outline-variant/40 focus:outline-none"
             >
               <option value="All">All Locations</option>
+              <option value="Dhaka">Dhaka</option>
               <option value="Remote">Remote</option>
-              <option value="San Francisco">San Francisco</option>
               <option value="Hybrid">Hybrid</option>
+              <option value="Chittagong">Chittagong</option>
             </select>
 
             {/* Sort */}
@@ -1144,7 +1614,7 @@ export default function Dashboard() {
             >
               <option value="newest">Recent First</option>
               <option value="oldest">Oldest First</option>
-              <option value="company">Company (A-Z)</option>
+              <option value="company">Organization (A-Z)</option>
             </select>
           </div>
 
@@ -1156,6 +1626,7 @@ export default function Dashboard() {
         {/* Application Cards Stack */}
         <div className="divide-y divide-surface-container-high/30">
           {filteredApplications.slice(0, 7).map((app) => {
+            const isGovt = (app.job_type || 'Private') === 'Government';
             const isRemote = (app.location || '').toLowerCase().includes('remote');
             const isHybrid = (app.location || '').toLowerCase().includes('hybrid');
 
@@ -1163,11 +1634,12 @@ export default function Dashboard() {
               <div
                 key={app.id}
                 id={`app-item-${app.id}`}
-                onClick={() => navigate(`/applications/${app.id}`)}
-                className="py-space-md flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm hover:bg-surface-container-low/50 rounded-xl px-space-xs transition-colors cursor-pointer group"
+                onClick={() => setCardActionApp(app)}
+                title="Click to update status or delete record"
+                className="py-space-md flex flex-col sm:flex-row sm:items-start justify-between gap-space-sm hover:bg-surface-container-low/50 rounded-xl px-space-xs transition-colors cursor-pointer group"
               >
-                {/* Left: Monogram + Company & Role Info */}
-                <div className="flex items-start gap-space-sm min-w-0">
+                {/* Left: Monogram + Company & Specific Workflow Info */}
+                <div className="flex items-start gap-space-sm min-w-0 flex-1">
                   <div
                     className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-xs ${getMonogramStyle(
                       app.companyName
@@ -1176,40 +1648,185 @@ export default function Dashboard() {
                     {getMonogram(app.companyName)}
                   </div>
 
-                  <div className="min-w-0 space-y-1">
+                  <div className="min-w-0 space-y-1 flex-1">
                     <div className="flex items-center gap-space-xs flex-wrap">
                       <span className="font-headline-sm text-body-md font-bold text-on-surface">
                         {app.companyName}
                       </span>
-                      <span className="px-space-xs py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-[10px] font-semibold uppercase">
-                        {isRemote ? 'Remote' : isHybrid ? 'Hybrid' : 'On-site'}
-                      </span>
+
+                      {/* Job Type Badge */}
+                      {isGovt ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-label-sm text-[10px] font-bold uppercase tracking-wider">
+                          <span className="material-symbols-outlined text-[12px]">account_balance</span>
+                          <span>Govt Circular</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 font-label-sm text-[10px] font-bold uppercase tracking-wider">
+                          <span className="material-symbols-outlined text-[12px]">business</span>
+                          <span>Private / MNC</span>
+                        </span>
+                      )}
+
+                      {/* Govt Grade or Work Modality */}
+                      {isGovt && app.jobGrade && (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-label-sm text-[10px] font-bold">
+                          {app.jobGrade}
+                        </span>
+                      )}
+                      {!isGovt && (
+                        <span className="px-space-xs py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-[10px] font-semibold uppercase">
+                          {isRemote ? 'Remote' : isHybrid ? 'Hybrid' : 'On-site'}
+                        </span>
+                      )}
                     </div>
 
                     <p className="font-headline-sm text-body-sm font-semibold text-on-surface truncate">
                       {app.jobTitle}
                     </p>
 
-                    <div className="flex items-center gap-space-sm text-[11px] flex-wrap font-body-sm">
-                      <span
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-primary-container/20 dark:bg-primary-950/40 text-primary font-semibold border border-primary/20"
-                        title={`Application submission date: ${formatDisplayDate(app.applicationDate)}`}
-                      >
-                        <span className="material-symbols-outlined text-[13px]">calendar_today</span>
-                        <span>Applied: {formatDisplayDate(app.applicationDate)}</span>
-                      </span>
-                      {app.location && (
-                        <span className="flex items-center gap-0.5 text-outline">
-                          <span className="material-symbols-outlined text-[14px]">location_on</span>
-                          <span className="truncate">{app.location}</span>
+                    {/* Government-Specific Fields Row */}
+                    {isGovt ? (
+                      <div className="flex items-center gap-space-xs text-[11px] flex-wrap font-body-sm pt-0.5">
+                        {app.ministryDepartment && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container text-on-surface font-medium">
+                            <span className="material-symbols-outlined text-[13px] text-emerald-600">apartment</span>
+                            <span>{app.ministryDepartment}</span>
+                          </span>
+                        )}
+
+                        {app.circularId && (
+                          <span className="px-2 py-0.5 rounded bg-surface-container font-mono text-[10px] text-outline font-medium">
+                            Ref: {app.circularId}
+                          </span>
+                        )}
+
+                        {/* Fee & Payment Status */}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold text-[11px] ${
+                            (app.paymentStatus || '').toLowerCase().includes('paid')
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[13px]">payments</span>
+                          <span>
+                            {app.applicationFee ? `${app.applicationFee} • ` : ''}
+                            {app.paymentStatus || 'Payment Pending'}
+                          </span>
                         </span>
-                      )}
-                      {app.salary && (
-                        <span className="px-2 py-0.5 rounded bg-surface-container font-mono-metric text-[10px] text-on-surface font-semibold">
-                          {app.salary}
+
+                        {/* Admit Card Status */}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold ${
+                            (app.admitCardStatus || '').toLowerCase().includes('download') ||
+                            (app.admitCardStatus || '').toLowerCase().includes('issued')
+                              ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                              : 'bg-surface-container text-on-surface-variant'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[13px]">assignment_ind</span>
+                          <span>Admit: {app.admitCardStatus || 'Pending'}</span>
                         </span>
-                      )}
-                    </div>
+
+                        {/* Exam Stages Progress Visualizer */}
+                        {Array.isArray(app.govtExamStages) && app.govtExamStages.length > 0 && (
+                          <div className="flex items-center gap-1 w-full pt-1">
+                            <span className="font-label-sm text-[10px] text-outline font-semibold uppercase tracking-wider mr-1">
+                              Exam Stages:
+                            </span>
+                            {app.govtExamStages.map((stage) => {
+                              const isPassed = stage.status === 'Passed';
+                              const isFailed = stage.status === 'Failed';
+                              const isPending = stage.status === 'Pending';
+                              return (
+                                <span
+                                  key={stage.id}
+                                  title={`${stage.name}: ${stage.status}${stage.date ? ` (${stage.date})` : ''}${stage.center ? ` at ${stage.center}` : ''}`}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                    isPassed
+                                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                      : isFailed
+                                      ? 'bg-red-500/15 text-red-700 dark:text-red-300'
+                                      : isPending && stage.date
+                                      ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                                      : 'bg-surface-container text-outline'
+                                  }`}
+                                >
+                                  {isPassed ? '✓ ' : isFailed ? '✕ ' : '• '}
+                                  {stage.name.replace(' Exam', '').replace(' Result / Recommendation', ' Final')}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Private Job Specific Fields Row */
+                      <div className="flex items-center gap-space-xs text-[11px] flex-wrap font-body-sm pt-0.5">
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary-container/20 dark:bg-primary-950/40 text-primary font-semibold border border-primary/20"
+                          title={`Application submission date: ${formatDisplayDate(app.applicationDate)}`}
+                        >
+                          <span className="material-symbols-outlined text-[13px]">calendar_today</span>
+                          <span>Applied: {formatDisplayDate(app.applicationDate)}</span>
+                        </span>
+
+                        {app.salary && (
+                          <span className="px-2 py-0.5 rounded bg-surface-container font-mono-metric text-[10px] text-on-surface font-semibold">
+                            Package: {app.salary}
+                          </span>
+                        )}
+
+                        {app.recruiterName && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-medium">
+                            <span className="material-symbols-outlined text-[13px]">contact_mail</span>
+                            <span>HR: {app.recruiterName}</span>
+                          </span>
+                        )}
+
+                        {app.applicationSource && (
+                          <span className="px-2 py-0.5 rounded bg-surface-container-high text-on-surface font-medium text-[10px]">
+                            via {app.applicationSource}
+                          </span>
+                        )}
+
+                        {app.location && (
+                          <span className="flex items-center gap-0.5 text-outline">
+                            <span className="material-symbols-outlined text-[14px]">location_on</span>
+                            <span className="truncate">{app.location}</span>
+                          </span>
+                        )}
+
+                        {/* Private Interview Rounds Progress Visualizer */}
+                        {Array.isArray(app.privateInterviewRounds) && app.privateInterviewRounds.length > 0 && (
+                          <div className="flex items-center gap-1 w-full pt-1">
+                            <span className="font-label-sm text-[10px] text-outline font-semibold uppercase tracking-wider mr-1">
+                              Interview Pipeline:
+                            </span>
+                            {app.privateInterviewRounds.map((round) => {
+                              const isCompleted = round.status === 'Completed';
+                              const isPending = round.status === 'Pending';
+                              return (
+                                <span
+                                  key={round.id}
+                                  title={`${round.name}: ${round.status}${round.date ? ` (${round.date})` : ''}`}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                    isCompleted
+                                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                      : isPending && round.date
+                                      ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
+                                      : 'bg-surface-container text-outline'
+                                  }`}
+                                >
+                                  {isCompleted ? '✓ ' : '• '}
+                                  {round.name.replace(' Interview', '').replace(' Screen', '')}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1313,6 +1930,29 @@ export default function Dashboard() {
           setAppToDelete(null);
         }}
         onConfirm={handleConfirmDeleteApp}
+      />
+
+      {/* Application Card Quick Action Modal (Update Status / Delete Record) */}
+      <ApplicationCardActionModal
+        isOpen={!!cardActionApp}
+        onClose={() => setCardActionApp(null)}
+        application={cardActionApp}
+        onStatusUpdated={(appId, newStatus) => {
+          setApplications((prev) =>
+            prev.map((a) => (a.id === appId ? { ...a, status: newStatus } : a))
+          );
+          setCardActionApp((prev) =>
+            prev && prev.id === appId ? { ...prev, status: newStatus } : prev
+          );
+        }}
+        onDeleted={(appId) => {
+          setApplications((prev) => prev.filter((a) => a.id !== appId));
+          setCardActionApp(null);
+        }}
+        onEdit={(app) => {
+          setCardActionApp(null);
+          openEditModal(app);
+        }}
       />
     </div>
   );

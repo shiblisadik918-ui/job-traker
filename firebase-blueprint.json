@@ -39,7 +39,12 @@
       "properties": {
         "id": { "type": "string", "description": "Document ID" },
         "userId": { "type": "string", "description": "Owner user ID" },
-        "companyName": { "type": "string", "description": "Company name", "minLength": 1, "maxLength": 200 },
+        "job_type": {
+          "type": "string",
+          "enum": ["Government", "Private"],
+          "description": "Job classification: Bangladesh Government or Private/MNC"
+        },
+        "companyName": { "type": "string", "description": "Company or Ministry/Department name", "minLength": 1, "maxLength": 200 },
         "companyLogo": { "type": "string", "description": "Company logo URL or monogram string" },
         "jobTitle": { "type": "string", "description": "Job title or position", "minLength": 1, "maxLength": 200 },
         "location": { "type": "string", "description": "Office or remote location" },
@@ -51,10 +56,10 @@
         "deadline": { "type": "string", "description": "Application or next step deadline" },
         "applicationSource": {
           "type": "string",
-          "enum": ["Company Website", "LinkedIn", "Bdjobs", "Email", "Referral", "Other"]
+          "description": "Job source (LinkedIn, Bdjobs, Chakri.com, Teletalk, etc.)"
         },
         "salary": { "type": "string", "description": "Salary or compensation range" },
-        "jobUrl": { "type": "string", "description": "Listing or posting URL" },
+        "jobUrl": { "type": "string", "description": "Listing or circular URL" },
         "status": {
           "type": "string",
           "enum": ["Saved", "Applied", "Shortlisted", "Interview", "Offer", "Rejected", "Withdrawn"]
@@ -64,6 +69,36 @@
           "enum": ["Low", "Medium", "High"]
         },
         "notes": { "type": "string", "description": "Personal application notes" },
+
+        "ministryDepartment": { "type": "string", "description": "Government Ministry or Department name" },
+        "jobGrade": { "type": "string", "description": "Government pay scale grade (e.g., 9th Grade, 11th Grade)" },
+        "circularId": { "type": "string", "description": "Government circular reference ID" },
+        "applicationFee": { "type": "string", "description": "Application fee amount" },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["Pending", "Paid via Teletalk SMS", "Paid via Online/bKash/Nagad", "Exempted"],
+          "description": "Government application fee payment status"
+        },
+        "admitCardStatus": {
+          "type": "string",
+          "enum": ["Not Published", "Download Available", "Downloaded", "Center Assigned"],
+          "description": "Government admit card publication status"
+        },
+        "userRollNumber": { "type": "string", "description": "Applicant roll number / registration ID" },
+        "govtExamStages": {
+          "type": "array",
+          "description": "Sequential government exam stages: Prelims -> Written -> Viva -> Final Result"
+        },
+
+        "recruiterName": { "type": "string", "description": "HR or Recruiter contact name" },
+        "recruiterEmail": { "type": "string", "description": "HR or Recruiter email" },
+        "recruiterPhone": { "type": "string", "description": "HR or Recruiter phone" },
+        "recruiterRole": { "type": "string", "description": "HR or Recruiter title" },
+        "privateInterviewRounds": {
+          "type": "array",
+          "description": "Private interview rounds: Phone Screen -> Tech -> HR -> Final Offer"
+        },
+
         "timeline": {
           "type": "array",
           "description": "History of status updates and notes"

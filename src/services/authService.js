@@ -9,11 +9,24 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   signOut,
+  GoogleAuthProvider,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase/config';
 import { getFriendlyErrorMessage } from '../firebase/errorHandler';
 import { calculateProfileCompleteness } from '../utils/profileVerification';
+
+// In-memory token cache for Google Workspace APIs (Drive)
+// Per security guidelines: Never persist in localStorage / sessionStorage
+let cachedGoogleAccessToken = null;
+
+export function getCachedGoogleAccessToken() {
+  return cachedGoogleAccessToken;
+}
+
+export function setCachedGoogleAccessToken(token) {
+  cachedGoogleAccessToken = token;
+}
 
 /**
  * Sync user profile details to Firestore users/{userId}
@@ -46,11 +59,37 @@ async function syncUserProfile(user, additionalData = {}) {
 export async function loginWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      cachedGoogleAccessToken = credential.accessToken;
+    }
     await syncUserProfile(result.user);
-    return { user: result.user, error: null };
+    return { user: result.user, accessToken: cachedGoogleAccessToken, error: null };
   } catch (error) {
     return {
       user: null,
+      accessToken: null,
+      error: getFriendlyErrorMessage(error),
+      rawError: error,
+    };
+  }
+}
+
+/**
+ * Explicitly connect / re-authorize Google Drive for personal direct file storage
+ */
+export async function connectGoogleDriveAccount() {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      cachedGoogleAccessToken = credential.accessToken;
+      return { accessToken: cachedGoogleAccessToken, error: null };
+    }
+    return { accessToken: null, error: 'Could not obtain Google Drive access token.' };
+  } catch (error) {
+    return {
+      accessToken: null,
       error: getFriendlyErrorMessage(error),
       rawError: error,
     };
@@ -102,6 +141,7 @@ export async function registerWithEmail(email, password, displayName = '') {
  */
 export async function logout() {
   try {
+    cachedGoogleAccessToken = null;
     await signOut(auth);
     return { success: true, error: null };
   } catch (error) {

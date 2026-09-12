@@ -70,9 +70,124 @@ export const APPLICATION_SOURCES = [
   'Company Website',
   'LinkedIn',
   'Bdjobs',
+  'Chakri.com',
+  'BPSC Portal / Teletalk',
+  'Govt Official Gazette / Circular',
   'Email',
   'Referral',
   'Other',
+];
+
+export const JOB_DISTINCTION_TYPES = ['Government', 'Private'];
+
+export const GOVT_JOB_GRADES = [
+  '9th Grade (First Class / BCS)',
+  '10th Grade (Second Class)',
+  '11th Grade (Assistant / Sub-Inspector)',
+  '12th Grade',
+  '13th Grade',
+  '14th Grade',
+  '15th Grade',
+  '16th Grade',
+  '20th Grade',
+  'Autonomous / Bank Officer (General/IT)',
+  'Other Grade',
+];
+
+export const GOVT_PAYMENT_STATUSES = [
+  'Pending',
+  'Paid via Teletalk SMS',
+  'Paid via Online/bKash/Nagad',
+  'Exempted',
+];
+
+export const GOVT_ADMIT_CARD_STATUSES = [
+  'Not Published',
+  'Download Available',
+  'Downloaded',
+  'Center Assigned',
+];
+
+export const GOVT_STAGE_STATUSES = ['Pending', 'Passed', 'Failed', 'Appeared'];
+
+export const DEFAULT_GOVT_EXAM_STAGES = [
+  {
+    id: 'prelims',
+    name: 'Preliminary Exam',
+    subtitle: 'MCQ Screening',
+    date: '',
+    center: '',
+    status: 'Pending',
+    notes: '',
+  },
+  {
+    id: 'written',
+    name: 'Written Exam',
+    subtitle: 'Subjective / Broad Exam',
+    date: '',
+    center: '',
+    status: 'Pending',
+    notes: '',
+  },
+  {
+    id: 'viva',
+    name: 'Viva / Practical',
+    subtitle: 'Oral Interview & Viva Voce',
+    date: '',
+    center: '',
+    status: 'Pending',
+    notes: '',
+  },
+  {
+    id: 'final',
+    name: 'Final Result / Recommendation',
+    subtitle: 'BPSC/Ministry Merit Gazetted',
+    date: '',
+    center: '',
+    status: 'Pending',
+    notes: '',
+  },
+];
+
+export const PRIVATE_ROUND_STATUSES = ['Pending', 'Passed', 'Failed', 'Scheduled', 'Completed'];
+
+export const DEFAULT_PRIVATE_INTERVIEW_ROUNDS = [
+  {
+    id: 'phone_screen',
+    name: 'Phone Screen',
+    subtitle: 'HR / Recruiter Screening',
+    date: '',
+    interviewer: '',
+    status: 'Pending',
+    notes: '',
+  },
+  {
+    id: 'technical_round',
+    name: 'Technical Round',
+    subtitle: 'Coding / Domain Knowledge',
+    date: '',
+    interviewer: '',
+    status: 'Pending',
+    notes: '',
+  },
+  {
+    id: 'hr_round',
+    name: 'HR Round',
+    subtitle: 'Culture Fit & Compensation',
+    date: '',
+    interviewer: '',
+    status: 'Pending',
+    notes: '',
+  },
+  {
+    id: 'final_offer',
+    name: 'Final Offer',
+    subtitle: 'Offer Letter & Negotiation',
+    date: '',
+    interviewer: '',
+    status: 'Pending',
+    notes: '',
+  },
 ];
 
 export const PRIORITY_LEVELS = [

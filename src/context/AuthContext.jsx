@@ -7,6 +7,8 @@ import {
   loginWithEmail as serviceLoginWithEmail,
   registerWithEmail as serviceRegisterWithEmail,
   logout as serviceLogout,
+  connectGoogleDriveAccount,
+  getCachedGoogleAccessToken,
 } from '../services/authService';
 import { calculateProfileCompleteness } from '../utils/profileVerification';
 
@@ -20,12 +22,15 @@ export const AuthContext = createContext({
   loginWithEmail: async () => {},
   registerWithEmail: async () => {},
   logout: async () => {},
+  connectGoogleDrive: async () => {},
+  getGoogleAccessToken: () => null,
 });
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hasDriveToken, setHasDriveToken] = useState(false);
 
   useEffect(() => {
     let profileUnsub = null;
@@ -33,6 +38,9 @@ export function AuthProvider({ children }) {
     // Listen for authentication changes
     const authUnsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (!currentUser) {
+        setHasDriveToken(false);
+      }
 
       if (profileUnsub) {
         profileUnsub();
@@ -70,7 +78,23 @@ export function AuthProvider({ children }) {
   }, []);
 
   const loginWithGoogle = async () => {
-    return await serviceLoginWithGoogle();
+    const res = await serviceLoginWithGoogle();
+    if (res.accessToken) {
+      setHasDriveToken(true);
+    }
+    return res;
+  };
+
+  const connectGoogleDrive = async () => {
+    const res = await connectGoogleDriveAccount();
+    if (res.accessToken) {
+      setHasDriveToken(true);
+    }
+    return res;
+  };
+
+  const getGoogleAccessToken = () => {
+    return getCachedGoogleAccessToken();
   };
 
   const loginWithEmail = async (email, password) => {
@@ -104,12 +128,15 @@ export function AuthProvider({ children }) {
       isVerified: verificationMetrics.isVerified,
       profileCompleteness: verificationMetrics.percentage,
       loading,
+      hasGoogleDriveAccess: hasDriveToken || Boolean(getCachedGoogleAccessToken()),
+      connectGoogleDrive,
+      getGoogleAccessToken,
       loginWithGoogle,
       loginWithEmail,
       registerWithEmail,
       logout,
     }),
-    [user, userProfile, verificationMetrics, loading]
+    [user, userProfile, verificationMetrics, loading, hasDriveToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
