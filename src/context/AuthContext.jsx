@@ -9,6 +9,9 @@ import {
   logout as serviceLogout,
   connectGoogleDriveAccount,
   getCachedGoogleAccessToken,
+  setManualGoogleAccessToken,
+  getGoogleDriveConnectionInfo,
+  disconnectGoogleDriveAccount,
 } from '../services/authService';
 import { calculateProfileCompleteness } from '../utils/profileVerification';
 
@@ -23,14 +26,31 @@ export const AuthContext = createContext({
   registerWithEmail: async () => {},
   logout: async () => {},
   connectGoogleDrive: async () => {},
+  manualConnectGoogleDrive: async () => {},
+  disconnectGoogleDrive: () => {},
   getGoogleAccessToken: () => null,
+  hasGoogleDriveAccess: false,
+  driveConnectionInfo: null,
 });
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [hasDriveToken, setHasDriveToken] = useState(false);
+  const [hasDriveToken, setHasDriveToken] = useState(() => Boolean(getCachedGoogleAccessToken()));
+  const [driveConnectionInfo, setDriveConnectionInfo] = useState(() => getGoogleDriveConnectionInfo());
+
+  useEffect(() => {
+    // Listen for manual drive connection / disconnection changes
+    const handleDriveAuthChange = (e) => {
+      const isConn = Boolean(e?.detail?.isConnected);
+      setHasDriveToken(isConn);
+      setDriveConnectionInfo(getGoogleDriveConnectionInfo());
+    };
+
+    window.addEventListener('jobtrack:drive-auth-changed', handleDriveAuthChange);
+    return () => window.removeEventListener('jobtrack:drive-auth-changed', handleDriveAuthChange);
+  }, []);
 
   useEffect(() => {
     let profileUnsub = null;
@@ -89,8 +109,24 @@ export function AuthProvider({ children }) {
     const res = await connectGoogleDriveAccount();
     if (res.accessToken) {
       setHasDriveToken(true);
+      setDriveConnectionInfo(getGoogleDriveConnectionInfo());
     }
     return res;
+  };
+
+  const manualConnectGoogleDrive = async (token, customEmail) => {
+    const res = await setManualGoogleAccessToken(token, customEmail);
+    if (res.success) {
+      setHasDriveToken(true);
+      setDriveConnectionInfo(getGoogleDriveConnectionInfo());
+    }
+    return res;
+  };
+
+  const disconnectGoogleDrive = () => {
+    disconnectGoogleDriveAccount();
+    setHasDriveToken(false);
+    setDriveConnectionInfo(getGoogleDriveConnectionInfo());
   };
 
   const getGoogleAccessToken = () => {
@@ -106,6 +142,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    disconnectGoogleDriveAccount();
     return await serviceLogout();
   };
 
@@ -129,14 +166,17 @@ export function AuthProvider({ children }) {
       profileCompleteness: verificationMetrics.percentage,
       loading,
       hasGoogleDriveAccess: hasDriveToken || Boolean(getCachedGoogleAccessToken()),
+      driveConnectionInfo,
       connectGoogleDrive,
+      manualConnectGoogleDrive,
+      disconnectGoogleDrive,
       getGoogleAccessToken,
       loginWithGoogle,
       loginWithEmail,
       registerWithEmail,
       logout,
     }),
-    [user, userProfile, verificationMetrics, loading, hasDriveToken]
+    [user, userProfile, verificationMetrics, loading, hasDriveToken, driveConnectionInfo]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

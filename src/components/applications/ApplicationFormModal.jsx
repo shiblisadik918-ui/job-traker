@@ -63,50 +63,60 @@ export default function ApplicationFormModal({
   const [validationErrors, setValidationErrors] = useState({});
 
   useEffect(() => {
-    if (initialData) {
-      const initialJobType = initialData.job_type || (initialData.ministryDepartment ? 'Government' : 'Private');
+    if (!isOpen) return;
+
+    // Check if initialData is a valid object and NOT a synthetic click event
+    const isSyntheticEvent =
+      initialData &&
+      (initialData.nativeEvent ||
+        initialData.target ||
+        typeof initialData.preventDefault === 'function');
+    const validData = isSyntheticEvent ? null : initialData;
+
+    if (validData) {
+      const initialJobType = validData.job_type || (validData.ministryDepartment ? 'Government' : 'Private');
       setFormData({
         job_type: initialJobType,
-        companyName: initialData.companyName || '',
-        ministryDepartment: initialData.ministryDepartment || (initialJobType === 'Government' ? initialData.companyName : ''),
-        jobTitle: initialData.jobTitle || '',
-        companyLogo: initialData.companyLogo || '',
-        location: initialData.location || '',
-        jobType: initialData.jobType || 'Full-time',
-        jobUrl: initialData.jobUrl || '',
-        applicationDate: initialData.applicationDate || getTodayString(),
-        status: initialData.status || 'Applied',
-        priority: initialData.priority || 'Medium',
-        deadline: initialData.deadline || '',
-        applicationSource: initialData.applicationSource || (initialJobType === 'Government' ? 'Govt Official Gazette / Circular' : 'LinkedIn'),
-        salary: initialData.salary || '',
-        notes: initialData.notes || '',
+        companyName: validData.companyName || '',
+        ministryDepartment: validData.ministryDepartment || (initialJobType === 'Government' ? validData.companyName : ''),
+        jobTitle: validData.jobTitle || '',
+        companyLogo: validData.companyLogo || '',
+        location: validData.location || '',
+        jobType: validData.jobType || 'Full-time',
+        jobUrl: validData.jobUrl || '',
+        applicationDate: validData.applicationDate || getTodayString(),
+        status: validData.status || 'Applied',
+        priority: validData.priority || 'Medium',
+        deadline: validData.deadline || '',
+        applicationSource: validData.applicationSource || (initialJobType === 'Government' ? 'Govt Official Gazette / Circular' : 'LinkedIn'),
+        salary: validData.salary || '',
+        notes: validData.notes || '',
         
         // Govt fields
-        jobGrade: initialData.jobGrade || '9th Grade (First Class / BCS)',
-        circularId: initialData.circularId || '',
-        applicationFee: initialData.applicationFee || '',
-        paymentStatus: initialData.paymentStatus || 'Pending',
-        admitCardStatus: initialData.admitCardStatus || 'Not Published',
-        userRollNumber: initialData.userRollNumber || '',
-        govtExamStages: Array.isArray(initialData.govtExamStages) && initialData.govtExamStages.length > 0
-          ? initialData.govtExamStages
+        jobGrade: validData.jobGrade || '9th Grade (First Class / BCS)',
+        circularId: validData.circularId || '',
+        applicationFee: validData.applicationFee || '',
+        paymentStatus: validData.paymentStatus || 'Pending',
+        admitCardStatus: validData.admitCardStatus || 'Not Published',
+        userRollNumber: validData.userRollNumber || '',
+        govtExamStages: Array.isArray(validData.govtExamStages) && validData.govtExamStages.length > 0
+          ? validData.govtExamStages
           : JSON.parse(JSON.stringify(DEFAULT_GOVT_EXAM_STAGES)),
 
         // Private fields
-        recruiterName: initialData.recruiterName || '',
-        recruiterEmail: initialData.recruiterEmail || '',
-        recruiterRole: initialData.recruiterRole || '',
-        recruiterPhone: initialData.recruiterPhone || '',
-        privateInterviewRounds: Array.isArray(initialData.privateInterviewRounds) && initialData.privateInterviewRounds.length > 0
-          ? initialData.privateInterviewRounds
+        recruiterName: validData.recruiterName || '',
+        recruiterEmail: validData.recruiterEmail || '',
+        recruiterRole: validData.recruiterRole || '',
+        recruiterPhone: validData.recruiterPhone || '',
+        privateInterviewRounds: Array.isArray(validData.privateInterviewRounds) && validData.privateInterviewRounds.length > 0
+          ? validData.privateInterviewRounds
           : JSON.parse(JSON.stringify(DEFAULT_PRIVATE_INTERVIEW_ROUNDS)),
       });
     } else {
       setFormData(defaultFormState);
     }
     setValidationErrors({});
-  }, [initialData, isOpen]);
+  }, [isOpen, initialData?.id]);
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -273,12 +283,15 @@ export default function ApplicationFormModal({
           <button
             id="close-application-form-modal-btn"
             type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="text-outline hover:text-on-surface p-1.5 rounded-lg hover:bg-surface-container transition-colors focus:outline-none"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
+            className="text-outline hover:text-on-surface p-1.5 rounded-lg hover:bg-surface-container transition-colors focus:outline-none cursor-pointer"
             aria-label="Close modal"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <span className="material-symbols-outlined text-[20px] pointer-events-none">close</span>
           </button>
         </div>
 
@@ -294,28 +307,36 @@ export default function ApplicationFormModal({
               <button
                 type="button"
                 id="btn-job-type-govt"
-                onClick={() => handleJobTypeChange('Government')}
-                className={`py-2.5 px-3 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleJobTypeChange('Government');
+                }}
+                className={`py-2.5 px-3 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer select-none active:scale-[0.98] ${
                   isGovt
-                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
-                    : 'bg-surface hover:bg-surface-container text-on-surface border-outline-variant/40'
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm ring-2 ring-emerald-400/40'
+                    : 'bg-surface hover:bg-surface-container text-on-surface border-outline-variant/40 hover:border-emerald-600/40'
                 }`}
               >
-                <span className="material-symbols-outlined text-[20px]">account_balance</span>
-                <span>Government (সরকারি চাকরি)</span>
+                <span className="material-symbols-outlined text-[20px] pointer-events-none">account_balance</span>
+                <span className="pointer-events-none font-medium">Government (সরকারি চাকরি)</span>
               </button>
               <button
                 type="button"
                 id="btn-job-type-private"
-                onClick={() => handleJobTypeChange('Private')}
-                className={`py-2.5 px-3 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleJobTypeChange('Private');
+                }}
+                className={`py-2.5 px-3 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer select-none active:scale-[0.98] ${
                   !isGovt
-                    ? 'bg-primary-container text-on-primary border-primary shadow-sm'
-                    : 'bg-surface hover:bg-surface-container text-on-surface border-outline-variant/40'
+                    ? 'bg-primary text-on-primary border-primary shadow-sm ring-2 ring-primary/40'
+                    : 'bg-surface hover:bg-surface-container text-on-surface border-outline-variant/40 hover:border-primary/40'
                 }`}
               >
-                <span className="material-symbols-outlined text-[20px]">corporate_fare</span>
-                <span>Private / MNC (বেসরকারি)</span>
+                <span className="material-symbols-outlined text-[20px] pointer-events-none">corporate_fare</span>
+                <span className="pointer-events-none font-medium">Private / MNC (বেসরকারি)</span>
               </button>
             </div>
             <p className="text-[11px] text-on-surface-variant px-1">
@@ -1053,9 +1074,12 @@ export default function ApplicationFormModal({
             <button
               id="cancel-form-modal-btn"
               type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container rounded-xl transition-colors min-h-[40px]"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }}
+              className="px-4 py-2 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container rounded-xl transition-colors min-h-[40px] cursor-pointer hover:text-on-surface active:scale-95"
             >
               Cancel
             </button>

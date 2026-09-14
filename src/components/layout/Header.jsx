@@ -67,7 +67,7 @@ export default function Header() {
           <button
             id="header-add-application-btn"
             type="button"
-            onClick={openAddModal}
+            onClick={() => openAddModal()}
             className="flex items-center gap-space-xs px-3 sm:px-space-md py-2 sm:py-space-xs rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-colors shadow-sm active:scale-[0.98]"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>

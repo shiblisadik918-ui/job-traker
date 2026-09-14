@@ -743,7 +743,7 @@ export default function Dashboard() {
             <button
               id="zero-add-first-app-btn"
               type="button"
-              onClick={openAddModal}
+              onClick={() => openAddModal()}
               className="flex items-center gap-space-xs px-space-xl py-2.5 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-all shadow-sm active:scale-95"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
@@ -1399,7 +1399,7 @@ export default function Dashboard() {
                 ) : (
                   <button
                     type="button"
-                    onClick={openAddModal}
+                    onClick={() => openAddModal()}
                     className="px-space-md py-1.5 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-colors flex items-center gap-1"
                   >
                     <span className="material-symbols-outlined text-[16px]">add</span>

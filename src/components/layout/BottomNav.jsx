@@ -43,7 +43,7 @@ export default function BottomNav() {
           <button
             id="mobile-center-add-btn"
             type="button"
-            onClick={openAddModal}
+            onClick={() => openAddModal()}
             aria-label="Add new application"
             className="w-[52px] h-[52px] rounded-full bg-primary text-on-primary flex items-center justify-center shadow-[0_4px_14px_rgba(53,37,205,0.35)] active:scale-95 transition-all hover:bg-primary-container"
           >

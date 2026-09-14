@@ -16,45 +16,66 @@ export function ApplicationModalProvider({ children }) {
   const { showSuccess, showError } = useToast();
 
   const openAddModal = useCallback((defaultValues = null) => {
-    setEditingApp(defaultValues);
+    // Sanitize: If defaultValues is a DOM/React SyntheticEvent, ignore it
+    const isSyntheticEvent =
+      defaultValues &&
+      (defaultValues.nativeEvent ||
+        defaultValues.target ||
+        typeof defaultValues.preventDefault === 'function');
+    const safeData = isSyntheticEvent || !defaultValues ? null : defaultValues;
+    setEditingApp(safeData);
+    setIsSubmitting(false);
     setIsOpen(true);
   }, []);
 
   const openEditModal = useCallback((app) => {
-    setEditingApp(app);
+    setEditingApp(app || null);
+    setIsSubmitting(false);
     setIsOpen(true);
   }, []);
 
   const closeModal = useCallback(() => {
-    if (!isSubmitting) {
-      setIsOpen(false);
-      setEditingApp(null);
-    }
-  }, [isSubmitting]);
+    setIsSubmitting(false);
+    setIsOpen(false);
+    setEditingApp(null);
+  }, []);
 
   const handleSave = async (formData) => {
-    setIsSubmitting(true);
-    if (editingApp && editingApp.id) {
-      const { success, error } = await updateApplication(editingApp.id, formData);
-      setIsSubmitting(false);
-      if (success) {
-        showSuccess('Application updated successfully.');
-        setIsOpen(false);
-        setEditingApp(null);
-        window.dispatchEvent(new CustomEvent('jobtrack:application-changed', { detail: { id: editingApp.id, action: 'update' } }));
+    try {
+      setIsSubmitting(true);
+      if (editingApp && editingApp.id) {
+        const { success, error } = await updateApplication(editingApp.id, formData);
+        if (success) {
+          showSuccess('Application updated successfully.');
+          setIsOpen(false);
+          setEditingApp(null);
+          window.dispatchEvent(
+            new CustomEvent('jobtrack:application-changed', {
+              detail: { id: editingApp.id, action: 'update' },
+            })
+          );
+        } else {
+          showError(error || 'Failed to update application.');
+        }
       } else {
-        showError(error || 'Failed to update application.');
+        const { data, error } = await createApplication(formData);
+        if (error) {
+          showError(error);
+        } else {
+          showSuccess('Application saved successfully.');
+          setIsOpen(false);
+          setEditingApp(null);
+          window.dispatchEvent(
+            new CustomEvent('jobtrack:application-changed', {
+              detail: { data, action: 'create' },
+            })
+          );
+        }
       }
-    } else {
-      const { data, error } = await createApplication(formData);
+    } catch (err) {
+      showError(err?.message || 'Failed to save application.');
+    } finally {
       setIsSubmitting(false);
-      if (error) {
-        showError(error);
-      } else {
-        showSuccess('Application saved successfully.');
-        setIsOpen(false);
-        window.dispatchEvent(new CustomEvent('jobtrack:application-changed', { detail: { data, action: 'create' } }));
-      }
     }
   };
 

@@ -467,7 +467,7 @@ export default function Applications() {
             <button
               id="command-add-app-btn"
               type="button"
-              onClick={openAddModal}
+              onClick={() => openAddModal()}
               className="flex items-center gap-1.5 px-space-md py-2.5 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-all shadow-sm active:scale-98 font-semibold"
               title="Track a new job application"
             >

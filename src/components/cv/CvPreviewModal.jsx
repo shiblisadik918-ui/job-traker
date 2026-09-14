@@ -23,8 +23,11 @@ export default function CvPreviewModal({
   const [popupBlocked, setPopupBlocked] = useState(false);
   const modalContentRef = useRef(null);
 
-  const { connectGoogleDrive, getGoogleAccessToken, hasGoogleDriveAccess } = useAuth();
+  const { user, connectGoogleDrive, manualConnectGoogleDrive, getGoogleAccessToken, hasGoogleDriveAccess } = useAuth();
   const { showSuccess, showError } = useToast();
+
+  const [manualTokenInput, setManualTokenInput] = useState('');
+  const [isVerifyingManual, setIsVerifyingManual] = useState(false);
 
   // Close on Escape key press
   useEffect(() => {
@@ -102,7 +105,12 @@ export default function CvPreviewModal({
       if (!token) {
         const connectRes = await connectGoogleDrive();
         if (connectRes?.error) {
-          if (connectRes.rawError?.code === 'auth/popup-blocked') {
+          if (
+            connectRes.rawError?.code === 'auth/popup-blocked' ||
+            connectRes.rawError?.code === 'auth/cancelled-popup-request' ||
+            connectRes.error?.toLowerCase().includes('popup') ||
+            connectRes.error?.toLowerCase().includes('blocked')
+          ) {
             setPopupBlocked(true);
           }
           showError(connectRes.error || 'গুগল অ্যাকাউন্টে সাইন-ইন করতে পারেনি।');
@@ -137,6 +145,32 @@ export default function CvPreviewModal({
     } finally {
       setZoomLevel(prevZoom);
       setIsSavingToDrive(false);
+    }
+  };
+
+  const handleManualConnectAndSave = async (e) => {
+    if (e) e.preventDefault();
+    if (!manualTokenInput.trim()) {
+      showError('অনুগ্রহ করে একটি বৈধ Google Access Token দিন।');
+      return;
+    }
+
+    setIsVerifyingManual(true);
+    try {
+      const res = await manualConnectGoogleDrive(manualTokenInput.trim(), user?.email);
+      if (!res.success) {
+        showError(res.error || 'টোকেন যাচাই ব্যর্থ হয়েছে।');
+      } else {
+        showSuccess('গুগল ড্রাইভ সফলভাবে সংযুক্ত হয়েছে! সিভি সেভ করা হচ্ছে...');
+        setPopupBlocked(false);
+        setManualTokenInput('');
+        // Immediately proceed to save CV to Drive with the verified token
+        await handleSaveToDrive();
+      }
+    } catch (err) {
+      showError(err.message || 'টোকেন সংযোগ ব্যর্থ।');
+    } finally {
+      setIsVerifyingManual(false);
     }
   };
 
@@ -323,26 +357,83 @@ export default function CvPreviewModal({
         </div>
       )}
 
-      {/* Popup Blocked Warning */}
+      {/* Popup Blocked Warning with Manual Input */}
       {popupBlocked && (
         <div className="w-full max-w-4xl mt-3 px-4">
-          <div className="p-3.5 bg-amber-900/80 border border-amber-500/50 rounded-xl text-amber-200 text-xs space-y-2">
+          <div className="p-3.5 bg-amber-950/90 border border-amber-500/50 rounded-xl text-amber-200 text-xs space-y-3 shadow-lg">
             <div className="flex items-center gap-2 font-bold text-white">
-              <span className="material-symbols-outlined text-amber-400 text-[18px]">warning</span>
-              <span>ব্রাউজার পপ-আপ ব্লক করেছে (Popup Blocked)</span>
+              <span className="material-symbols-outlined text-amber-400 text-[20px]">warning</span>
+              <span>পপ-আপ ব্লক হয়েছে — ম্যানুয়ালি গুগল একাউন্ট যুক্ত করুন (Manual Google Drive)</span>
             </div>
-            <p>
-              আইফ্রেম প্রিভিউতে ব্রাউজার গুগল সাইন-ইন উইন্ডো বন্ধ করে দিতে পারে। সম্পূর্ণ মসৃণভাবে গুগল ড্রাইভ ব্যবহারের জন্য অ্যাপটি নতুন ব্রাউজার ট্যাবে খুলুন:
+            <p className="leading-relaxed">
+              আইফ্রেম প্রিভিউতে গুগল সাইন-ইন পপ-আপ কাজ না করলে, আপনি সরাসরি নিচে Google OAuth Access Token পেস্ট করে সিভি সংরক্ষণ করতে পারেন:
             </p>
-            <a
-              href={window.location.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-semibold text-xs transition-colors"
-            >
-              <span className="material-symbols-outlined text-[15px]">open_in_new</span>
-              <span>নতুন ট্যাবে খুলুন (Open in New Tab)</span>
-            </a>
+
+            {/* Inline Token Form */}
+            <form onSubmit={handleManualConnectAndSave} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="password"
+                  placeholder="ya29.a0AfH6S... (Access Token)"
+                  value={manualTokenInput}
+                  onChange={(e) => setManualTokenInput(e.target.value)}
+                  className="w-full pl-3 pr-20 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      if (text) setManualTokenInput(text.trim());
+                    } catch (e) {
+                      showError('ক্লিপবোর্ড পেস্ট ব্যর্থ।');
+                    }
+                  }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-0.5 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded cursor-pointer"
+                >
+                  পেস্ট
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isVerifyingManual || !manualTokenInput.trim()}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 disabled:opacity-50 text-white rounded-lg font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+              >
+                {isVerifyingManual ? (
+                  <>
+                    <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                    <span>যাচাই হচ্ছে...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[15px]">cloud_upload</span>
+                    <span>কানেক্ট ও সেভ করুন</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="flex items-center justify-between gap-2 flex-wrap pt-1 text-[11px] text-amber-300/80 border-t border-amber-500/20">
+              <a
+                href="https://developers.google.com/oauthplayground/#step1&apisSelect=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.file"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-white flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[13px]">help</span>
+                <span>টোকেন পান: Google OAuth Playground (Drive API v3)</span>
+              </a>
+              <a
+                href={window.location.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-white flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                <span>অথবা নতুন ট্যাবে অ্যাপটি খুলুন</span>
+              </a>
+            </div>
           </div>
         </div>
       )}

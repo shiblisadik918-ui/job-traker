@@ -17,15 +17,137 @@ import { getFriendlyErrorMessage } from '../firebase/errorHandler';
 import { calculateProfileCompleteness } from '../utils/profileVerification';
 
 // In-memory token cache for Google Workspace APIs (Drive)
-// Per security guidelines: Never persist in localStorage / sessionStorage
 let cachedGoogleAccessToken = null;
+const MANUAL_DRIVE_TOKEN_KEY = 'jobtrack_manual_google_drive_token';
+const MANUAL_DRIVE_INFO_KEY = 'jobtrack_manual_google_drive_info';
 
 export function getCachedGoogleAccessToken() {
-  return cachedGoogleAccessToken;
+  if (cachedGoogleAccessToken) {
+    return cachedGoogleAccessToken;
+  }
+  try {
+    const stored = sessionStorage.getItem(MANUAL_DRIVE_TOKEN_KEY);
+    if (stored) {
+      cachedGoogleAccessToken = stored;
+      return stored;
+    }
+  } catch (e) {
+    // sessionStorage not available
+  }
+  return null;
 }
 
 export function setCachedGoogleAccessToken(token) {
   cachedGoogleAccessToken = token;
+}
+
+/**
+ * Validate and set manual Google Access Token for Google Drive.
+ * Directly verifies against Google Drive API v3 to confirm authorization.
+ */
+export async function setManualGoogleAccessToken(token, customEmail = null) {
+  if (!token || !token.trim()) {
+    return { success: false, error: 'অনুগ্রহ করে একটি বৈধ Google Access Token দিন।' };
+  }
+
+  const cleanToken = token.trim();
+
+  try {
+    // Verify token directly with Google Drive API
+    const testRes = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress,photoLink),storageQuota', {
+      headers: {
+        Authorization: `Bearer ${cleanToken}`,
+      },
+    });
+
+    if (!testRes.ok) {
+      const errJson = await testRes.json().catch(() => ({}));
+      const msg = errJson?.error?.message || `টোকেন যাচাই ব্যর্থ হয়েছে (Status: ${testRes.status})`;
+      if (testRes.status === 401) {
+        return {
+          success: false,
+          error: 'টোকেনটি অবৈধ অথবা মেয়াদ শেষ হয়ে গেছে (Invalid or Expired Token)। নতুন Access Token দিন।',
+        };
+      }
+      return { success: false, error: msg };
+    }
+
+    const driveInfo = await testRes.json();
+    const driveUser = driveInfo.user || {};
+    const storageQuota = driveInfo.storageQuota || {};
+
+    const accountInfo = {
+      isConnected: true,
+      email: driveUser.emailAddress || customEmail || auth.currentUser?.email || '',
+      displayName: driveUser.displayName || auth.currentUser?.displayName || 'Google Account',
+      photoLink: driveUser.photoLink || auth.currentUser?.photoURL || '',
+      storageQuota,
+      connectedAt: new Date().toISOString(),
+      method: 'manual',
+    };
+
+    cachedGoogleAccessToken = cleanToken;
+    try {
+      sessionStorage.setItem(MANUAL_DRIVE_TOKEN_KEY, cleanToken);
+      sessionStorage.setItem(MANUAL_DRIVE_INFO_KEY, JSON.stringify(accountInfo));
+    } catch (e) {
+      console.warn('Could not cache token in sessionStorage:', e);
+    }
+
+    window.dispatchEvent(new CustomEvent('jobtrack:drive-auth-changed', { detail: { isConnected: true, accountInfo } }));
+
+    return { success: true, accountInfo, accessToken: cleanToken, error: null };
+  } catch (err) {
+    return {
+      success: false,
+      error: err?.message || 'Google Drive API সার্ভারের সাথে সংযোগ করা যায়নি।',
+    };
+  }
+}
+
+/**
+ * Retrieve current Google Drive connection details
+ */
+export function getGoogleDriveConnectionInfo() {
+  try {
+    const raw = sessionStorage.getItem(MANUAL_DRIVE_INFO_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.isConnected) return parsed;
+    }
+  } catch (e) {}
+
+  if (cachedGoogleAccessToken) {
+    return {
+      isConnected: true,
+      email: auth.currentUser?.email || '',
+      displayName: auth.currentUser?.displayName || 'Google Account',
+      photoLink: auth.currentUser?.photoURL || '',
+      method: 'popup',
+    };
+  }
+
+  return {
+    isConnected: false,
+    email: '',
+    displayName: '',
+    photoLink: '',
+    method: null,
+  };
+}
+
+/**
+ * Disconnect Google Drive account and clear cached tokens
+ */
+export function disconnectGoogleDriveAccount() {
+  cachedGoogleAccessToken = null;
+  try {
+    sessionStorage.removeItem(MANUAL_DRIVE_TOKEN_KEY);
+    sessionStorage.removeItem(MANUAL_DRIVE_INFO_KEY);
+  } catch (e) {}
+
+  window.dispatchEvent(new CustomEvent('jobtrack:drive-auth-changed', { detail: { isConnected: false } }));
+  return { success: true };
 }
 
 /**
