@@ -430,26 +430,70 @@ export default function GoogleDriveStorageManager({ compact = false }) {
             </div>
 
             {/* Quick Helper Steps */}
-            <div className="p-3 rounded-xl bg-surface-container-lowest border border-surface-container-high/40 text-[11px] text-on-surface-variant space-y-1.5">
-              <p className="font-semibold text-on-surface flex items-center gap-1">
-                <span className="material-symbols-outlined text-[15px] text-primary">info</span>
-                <span>টোকেন কীভাবে পাবেন (১ মিনিটে খুব সহজে):</span>
-              </p>
-              <ol className="list-decimal pl-4 space-y-1 leading-relaxed">
-                <li>
-                  নিচের{' '}
-                  <a
-                    href="https://developers.google.com/oauthplayground/#step1&apisSelect=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.file"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary font-semibold underline hover:text-primary-container"
-                  >
-                    Google OAuth 2.0 Playground লিঙ্কটিতে ক্লিক করুন (নতুন ট্যাবে)
-                  </a>।
-                </li>
-                <li>সেখানে <strong>Drive API v3</strong> সিলেক্ট করে <strong>Authorize APIs</strong>-এ আপনার গুগল অ্যাকাউন্ট দিন।</li>
-                <li><strong>"Exchange authorization code for tokens"</strong> বাটনে ক্লিক করে <strong>Access token</strong>-টি কপি করে এখানে পেস্ট করুন।</li>
-              </ol>
+            <div className="p-3.5 rounded-xl bg-surface-container-lowest border border-primary/20 text-xs text-on-surface-variant space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-on-surface flex items-center gap-1.5 text-xs">
+                  <span className="material-symbols-outlined text-[17px] text-primary">live_help</span>
+                  <span>টোকেন যেভাবে বের করবেন (মাত্র ৩০ সেকেন্ড):</span>
+                </p>
+                <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold text-[10px]">৩টি সহজ ধাপ</span>
+              </div>
+
+              <div className="space-y-2 text-[11.5px] leading-relaxed">
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-surface-container/50 border border-surface-container-high/60">
+                  <span className="w-5 h-5 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">১</span>
+                  <div className="space-y-1">
+                    <p>নিচের অফিসিয়াল গুগল লিঙ্কে ক্লিক করুন:</p>
+                    <a
+                      href="https://developers.google.com/oauthplayground/#step1&apisSelect=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.file"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary text-on-primary rounded-md font-semibold text-[11px] shadow-xs hover:bg-primary/90 transition-colors"
+                    >
+                      <span>গুগল প্লেগ্রাউন্ড খুলুন (Google OAuth Playground)</span>
+                      <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-surface-container/50 border border-surface-container-high/60">
+                  <span className="w-5 h-5 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">২</span>
+                  <div className="space-y-1">
+                    <p>
+                      পেজের বামপাশে সরাসরি নীল রঙের <strong>"Authorize APIs"</strong> বাটনে ক্লিক করুন।
+                    </p>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 p-1.5 rounded border border-amber-500/30">
+                      ⚠️ <strong>সতর্কতা:</strong> নিচের "Input your own scopes" ইনপুট বক্সে আপনার ইমেইল বা কোনো কিছু টাইপ করবেন না। সরাসরি নীল বাটনে ক্লিক করে আপনার অ্যাকাউন্ট (<strong>{user?.email || 'shiblisadik918@gmail.com'}</strong>) সিলেক্ট করুন।
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-surface-container/50 border border-surface-container-high/60">
+                  <span className="w-5 h-5 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">৩</span>
+                  <div>
+                    <p>
+                      Step 2 ওপেন হবে। সেখানে নীল রঙের <strong>"Exchange authorization code for tokens"</strong> বাটনে চাপ দিন। নিচে <strong>"Access token"</strong> বক্সে <code className="bg-surface-container-high px-1 py-0.5 rounded font-mono text-[10.5px]">ya29...</code> লেখা টোকেন আসবে, সেটি কপি করে উপরের বক্সে পেস্ট করুন!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pro-tip: New tab login alternative */}
+              <div className="pt-1 border-t border-surface-container-high/40 flex items-center justify-between gap-2 flex-wrap text-[11px]">
+                <span className="text-on-surface-variant flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px] text-amber-500">lightbulb</span>
+                  <span>সবচেয়ে সহজ উপায়: অ্যাপটি নতুন ট্যাবে খুলুন (যেখানে কোনো পপ-আপ আটকাবে না)</span>
+                </span>
+                <a
+                  href={window.location.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-primary hover:underline inline-flex items-center gap-0.5"
+                >
+                  <span>নতুন ট্যাবে খুলুন</span>
+                  <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                </a>
+              </div>
             </div>
 
             {/* Submit buttons */}
