@@ -9,6 +9,8 @@
       "DOM",
       "DOM.Iterable"
     ],
+    "types": ["vite-plugin-pwa/client"
+    ],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,

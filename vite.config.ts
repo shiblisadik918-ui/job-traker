@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import {defineConfig, Plugin} from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // LINT.IfChange(aistudio_media_plugin)
 function aistudioMediaPlugin(): Plugin {
@@ -66,7 +67,7 @@ function aistudioMediaPlugin(): Plugin {
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss(), aistudioMediaPlugin()],
+    plugins: [react(), tailwindcss(), aistudioMediaPlugin(), VitePWA({ registerType: 'autoUpdate', devOptions: { enabled: true }, manifest: { id: '/', name: 'JobTrack Pro', short_name: 'JobTrack', description: 'Job application and exam tracking system.', theme_color: '#0f172a', background_color: '#0f172a', display: 'standalone', start_url: '/', scope: '/', icons: [ { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }, { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' }, { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: '/pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' } ] }, workbox: { maximumFileSizeToCacheInBytes: 5000000, globPatterns: ['**/*.{js,css,html,ico,png,svg}'] } })],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

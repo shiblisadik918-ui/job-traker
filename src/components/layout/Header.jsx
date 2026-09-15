@@ -5,6 +5,7 @@ import { useApplicationModal } from '../../context/ApplicationModalContext';
 import { useTheme } from '../../context/ThemeContext';
 import JobTrackLogo from '../common/JobTrackLogo';
 import GlobalSearchBar from '../search/GlobalSearchBar';
+import { PWAInstallButton } from '../common/PWAInstallButton';
 
 export default function Header() {
   const { user, userProfile, isVerified, logout } = useAuth();
@@ -71,6 +72,11 @@ export default function Header() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-error"></span>
             </span>
           </button>
+
+          {/* Install PWA Prompt */}
+          <div className="hidden sm:block">
+            <PWAInstallButton />
+          </div>
 
           {/* Add Application Primary Action */}
           <button
@@ -172,6 +178,12 @@ export default function Header() {
                     {theme}
                   </span>
                 </button>
+
+                <div className="sm:hidden mt-1 pt-1 border-t border-surface-container">
+                  <div className="px-3 py-2">
+                    <PWAInstallButton />
+                  </div>
+                </div>
 
                 <div className="border-t border-surface-container my-1" />
 
