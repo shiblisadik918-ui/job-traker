@@ -9,6 +9,8 @@ import { formatDisplayDate } from '../utils/constants';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import CalendarExportButtons from '../components/common/CalendarExportButtons';
 import ApplicationCardActionModal from '../components/applications/ApplicationCardActionModal';
+import ApplicationAnalytics from '../components/dashboard/ApplicationAnalytics';
+import ApplicationExpenseTracker from '../components/dashboard/ApplicationExpenseTracker';
 
 export default function Dashboard() {
   const { user, userProfile, isVerified, profileCompleteness } = useAuth();
@@ -827,6 +829,9 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+
+        {/* Application Analytics Chart Preview (Recharts) */}
+        <ApplicationAnalytics applications={applications} />
       </div>
     );
   }
@@ -1450,6 +1455,12 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Recharts Job Pipeline & Govt vs Private Analytics Section */}
+      <ApplicationAnalytics applications={applications} />
+
+      {/* Application Total Cost & Fee Tracker Chart Section */}
+      <ApplicationExpenseTracker applications={applications} />
+
       {/* Recent Applications Master Section */}
       <section
         id="dashboard-recent-applications"
@@ -1638,8 +1649,8 @@ export default function Dashboard() {
                 title="Click to update status or delete record"
                 className="py-space-md flex flex-col sm:flex-row sm:items-start justify-between gap-space-sm hover:bg-surface-container-low/50 rounded-xl px-space-xs transition-colors cursor-pointer group"
               >
-                {/* Left: Monogram + Company & Specific Workflow Info */}
-                <div className="flex items-start gap-space-sm min-w-0 flex-1">
+                {/* Left: Monogram + Simple Name, Job Type, Status & Payment */}
+                <div className="flex items-center gap-space-sm min-w-0 flex-1">
                   <div
                     className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-xs ${getMonogramStyle(
                       app.companyName
@@ -1648,185 +1659,87 @@ export default function Dashboard() {
                     {getMonogram(app.companyName)}
                   </div>
 
-                  <div className="min-w-0 space-y-1 flex-1">
-                    <div className="flex items-center gap-space-xs flex-wrap">
+                  <div className="min-w-0 space-y-1.5 flex-1">
+                    {/* Organization / Company Name & Job Title */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-headline-sm text-body-md font-bold text-on-surface">
                         {app.companyName}
                       </span>
-
-                      {/* Job Type Badge */}
-                      {isGovt ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-label-sm text-[10px] font-bold uppercase tracking-wider">
-                          <span className="material-symbols-outlined text-[12px]">account_balance</span>
-                          <span>Govt Circular</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 font-label-sm text-[10px] font-bold uppercase tracking-wider">
-                          <span className="material-symbols-outlined text-[12px]">business</span>
-                          <span>Private / MNC</span>
-                        </span>
-                      )}
-
-                      {/* Govt Grade or Work Modality */}
-                      {isGovt && app.jobGrade && (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-label-sm text-[10px] font-bold">
-                          {app.jobGrade}
-                        </span>
-                      )}
-                      {!isGovt && (
-                        <span className="px-space-xs py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-[10px] font-semibold uppercase">
-                          {isRemote ? 'Remote' : isHybrid ? 'Hybrid' : 'On-site'}
+                      {app.jobTitle && (
+                        <span className="text-body-sm font-semibold text-on-surface-variant">
+                          • {app.jobTitle}
                         </span>
                       )}
                     </div>
 
-                    <p className="font-headline-sm text-body-sm font-semibold text-on-surface truncate">
-                      {app.jobTitle}
-                    </p>
-
-                    {/* Government-Specific Fields Row */}
-                    {isGovt ? (
-                      <div className="flex items-center gap-space-xs text-[11px] flex-wrap font-body-sm pt-0.5">
-                        {app.ministryDepartment && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container text-on-surface font-medium">
-                            <span className="material-symbols-outlined text-[13px] text-emerald-600">apartment</span>
-                            <span>{app.ministryDepartment}</span>
-                          </span>
-                        )}
-
-                        {app.circularId && (
-                          <span className="px-2 py-0.5 rounded bg-surface-container font-mono text-[10px] text-outline font-medium">
-                            Ref: {app.circularId}
-                          </span>
-                        )}
-
-                        {/* Fee & Payment Status */}
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold text-[11px] ${
-                            (app.paymentStatus || '').toLowerCase().includes('paid')
-                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[13px]">payments</span>
-                          <span>
-                            {app.applicationFee ? `${app.applicationFee} • ` : ''}
-                            {app.paymentStatus || 'Payment Pending'}
-                          </span>
+                    {/* Only the 3 requested fields: 1. সরকারি/বেসরকারি 2. Applied/Pending 3. Paid/Unpaid */}
+                    <div className="flex items-center gap-2 flex-wrap font-body-sm text-xs">
+                      {/* 1. সরকারি নাকি বেসরকারি (Govt or Private) */}
+                      {isGovt ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-label-sm text-[11px] font-bold">
+                          <span className="material-symbols-outlined text-[13px]">account_balance</span>
+                          <span>সরকারি (Govt)</span>
                         </span>
-
-                        {/* Admit Card Status */}
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold ${
-                            (app.admitCardStatus || '').toLowerCase().includes('download') ||
-                            (app.admitCardStatus || '').toLowerCase().includes('issued')
-                              ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
-                              : 'bg-surface-container text-on-surface-variant'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[13px]">assignment_ind</span>
-                          <span>Admit: {app.admitCardStatus || 'Pending'}</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 font-label-sm text-[11px] font-bold">
+                          <span className="material-symbols-outlined text-[13px]">business</span>
+                          <span>বেসরকারি (Private)</span>
                         </span>
+                      )}
 
-                        {/* Exam Stages Progress Visualizer */}
-                        {Array.isArray(app.govtExamStages) && app.govtExamStages.length > 0 && (
-                          <div className="flex items-center gap-1 w-full pt-1">
-                            <span className="font-label-sm text-[10px] text-outline font-semibold uppercase tracking-wider mr-1">
-                              Exam Stages:
+                      {/* 2. Apply korsi naki pending (Application Status) */}
+                      {app.status === 'Applied' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary-container/30 text-primary font-label-sm text-[11px] font-bold">
+                          <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                          <span>Apply korsi (Applied)</span>
+                        </span>
+                      ) : app.status === 'Interview' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 font-label-sm text-[11px] font-bold">
+                          <span className="material-symbols-outlined text-[13px]">record_voice_over</span>
+                          <span>Interview</span>
+                        </span>
+                      ) : app.status === 'Offer' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-label-sm text-[11px] font-bold">
+                          <span className="material-symbols-outlined text-[13px]">workspace_premium</span>
+                          <span>Offer</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-[11px] font-bold">
+                          <span className="material-symbols-outlined text-[13px]">schedule</span>
+                          <span>Pending (আবেদন বাকি)</span>
+                        </span>
+                      )}
+
+                      {/* 3. Paid naki Unpaid (Payment Status & Fee) */}
+                      {(() => {
+                        const pStatus = (app.paymentStatus || '').toLowerCase();
+                        const isPaid = pStatus.includes('paid');
+                        const isExempt = pStatus.includes('exempt') || pStatus.includes('free');
+                        const feeStr = app.applicationFee ? `${app.applicationFee}` : '';
+
+                        if (isPaid) {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-500/30 font-label-sm text-[11px] font-bold">
+                              <span className="material-symbols-outlined text-[13px]">payments</span>
+                              <span>Paid {feeStr ? `(${feeStr})` : ''}</span>
                             </span>
-                            {app.govtExamStages.map((stage) => {
-                              const isPassed = stage.status === 'Passed';
-                              const isFailed = stage.status === 'Failed';
-                              const isPending = stage.status === 'Pending';
-                              return (
-                                <span
-                                  key={stage.id}
-                                  title={`${stage.name}: ${stage.status}${stage.date ? ` (${stage.date})` : ''}${stage.center ? ` at ${stage.center}` : ''}`}
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                    isPassed
-                                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                                      : isFailed
-                                      ? 'bg-red-500/15 text-red-700 dark:text-red-300'
-                                      : isPending && stage.date
-                                      ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
-                                      : 'bg-surface-container text-outline'
-                                  }`}
-                                >
-                                  {isPassed ? '✓ ' : isFailed ? '✕ ' : '• '}
-                                  {stage.name.replace(' Exam', '').replace(' Result / Recommendation', ' Final')}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* Private Job Specific Fields Row */
-                      <div className="flex items-center gap-space-xs text-[11px] flex-wrap font-body-sm pt-0.5">
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary-container/20 dark:bg-primary-950/40 text-primary font-semibold border border-primary/20"
-                          title={`Application submission date: ${formatDisplayDate(app.applicationDate)}`}
-                        >
-                          <span className="material-symbols-outlined text-[13px]">calendar_today</span>
-                          <span>Applied: {formatDisplayDate(app.applicationDate)}</span>
-                        </span>
-
-                        {app.salary && (
-                          <span className="px-2 py-0.5 rounded bg-surface-container font-mono-metric text-[10px] text-on-surface font-semibold">
-                            Package: {app.salary}
-                          </span>
-                        )}
-
-                        {app.recruiterName && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-medium">
-                            <span className="material-symbols-outlined text-[13px]">contact_mail</span>
-                            <span>HR: {app.recruiterName}</span>
-                          </span>
-                        )}
-
-                        {app.applicationSource && (
-                          <span className="px-2 py-0.5 rounded bg-surface-container-high text-on-surface font-medium text-[10px]">
-                            via {app.applicationSource}
-                          </span>
-                        )}
-
-                        {app.location && (
-                          <span className="flex items-center gap-0.5 text-outline">
-                            <span className="material-symbols-outlined text-[14px]">location_on</span>
-                            <span className="truncate">{app.location}</span>
-                          </span>
-                        )}
-
-                        {/* Private Interview Rounds Progress Visualizer */}
-                        {Array.isArray(app.privateInterviewRounds) && app.privateInterviewRounds.length > 0 && (
-                          <div className="flex items-center gap-1 w-full pt-1">
-                            <span className="font-label-sm text-[10px] text-outline font-semibold uppercase tracking-wider mr-1">
-                              Interview Pipeline:
+                          );
+                        }
+                        if (isExempt) {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-label-sm text-[11px] font-semibold">
+                              <span>Free (ফি নেই)</span>
                             </span>
-                            {app.privateInterviewRounds.map((round) => {
-                              const isCompleted = round.status === 'Completed';
-                              const isPending = round.status === 'Pending';
-                              return (
-                                <span
-                                  key={round.id}
-                                  title={`${round.name}: ${round.status}${round.date ? ` (${round.date})` : ''}`}
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                    isCompleted
-                                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                                      : isPending && round.date
-                                      ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
-                                      : 'bg-surface-container text-outline'
-                                  }`}
-                                >
-                                  {isCompleted ? '✓ ' : '• '}
-                                  {round.name.replace(' Interview', '').replace(' Screen', '')}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          );
+                        }
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-500/30 font-label-sm text-[11px] font-bold">
+                            <span className="material-symbols-outlined text-[13px]">pending</span>
+                            <span>Unpaid {feeStr ? `(${feeStr})` : ''}</span>
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
 

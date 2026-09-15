@@ -29,38 +29,47 @@ export default function Header() {
         id="app-header"
         className="fixed top-0 left-0 md:left-64 right-0 h-16 bg-surface/80 dark:bg-surface-container-lowest/80 backdrop-blur-xl z-40 flex items-center justify-between px-4 sm:px-space-md md:px-space-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-surface-container-high/30"
       >
-        {/* Mobile Logo Brand indicator */}
+        {/* Mobile Brand indicator */}
         <div className="flex items-center gap-2 md:hidden mr-2">
-          <JobTrackLogo className="w-7 h-7 shrink-0" />
-          <span className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">JobTrack</span>
+          <JobTrackLogo className="w-8 h-8 shrink-0 object-contain" />
+          <div className="flex flex-col">
+            <span className="font-headline-sm text-[15px] text-on-surface font-bold tracking-tight leading-none">
+              JobTrack
+            </span>
+            <span className="font-label-sm text-[10px] text-primary tracking-wider uppercase leading-none mt-0.5 font-bold">
+              Tracker
+            </span>
+          </div>
         </div>
 
         {/* Global Search Bar with Filters */}
-        <GlobalSearchBar />
+        <div className="flex-1 max-w-xl">
+          <GlobalSearchBar />
+        </div>
 
         {/* Action Header Elements */}
         <div className="flex items-center gap-space-xs sm:gap-space-sm md:gap-space-md">
+          {/* Dual Pipeline Pill (Hidden on mobile) */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-fixed">
+            <span className="w-2 h-2 rounded-full bg-tertiary-container animate-pulse"></span>
+            <span className="font-label-sm text-label-sm font-medium">
+              Dual Pipeline • BD Govt &amp; Private
+            </span>
+          </div>
+
           {/* Reminders / Notifications */}
           <button
             id="header-notifications-btn"
             type="button"
             onClick={() => navigate('/reminders')}
-            title="Follow-ups and Reminders"
+            title="Notifications & Alerts"
             className="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors"
           >
-            <span className="material-symbols-outlined text-[20px]">notifications</span>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary ring-2 ring-surface-container-lowest"></span>
-          </button>
-
-          {/* Help & Guide */}
-          <button
-            id="header-help-btn"
-            type="button"
-            onClick={() => setShowHelpModal(true)}
-            title="JobTrack Guide & Shortcuts"
-            className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors hidden sm:block"
-          >
-            <span className="material-symbols-outlined text-[20px]">help_outline</span>
+            <span className="material-symbols-outlined text-[22px]">notifications</span>
+            <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-error"></span>
+            </span>
           </button>
 
           {/* Add Application Primary Action */}
@@ -68,10 +77,10 @@ export default function Header() {
             id="header-add-application-btn"
             type="button"
             onClick={() => openAddModal()}
-            className="flex items-center gap-space-xs px-3 sm:px-space-md py-2 sm:py-space-xs rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-colors shadow-sm active:scale-[0.98]"
+            className="hidden sm:flex items-center gap-space-xs px-3 sm:px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm active:scale-[0.98]"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
-            <span className="hidden sm:inline">Add Application</span>
+            <span>Add Application</span>
           </button>
 
           {/* User Profile Avatar with dropdown */}
@@ -80,14 +89,25 @@ export default function Header() {
               id="header-profile-avatar-btn"
               type="button"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="flex items-center focus:outline-none"
+              className="flex items-center gap-2 focus:outline-none"
             >
               <img
                 src={photoURL}
                 alt={displayName}
-                className="w-8 h-8 rounded-full object-cover ring-1 ring-surface-container-highest shadow-xs"
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-primary-container/30 shadow-xs"
                 referrerPolicy="no-referrer"
               />
+              <div className="hidden xl:flex flex-col text-left">
+                <span className="font-label-md text-label-md text-on-surface font-semibold leading-tight truncate max-w-[120px]">
+                  {displayName}
+                </span>
+                <span className="font-label-sm text-[11px] text-secondary leading-tight">
+                  Senior Aspirant
+                </span>
+              </div>
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant hidden xl:inline">
+                expand_more
+              </span>
             </button>
 
             {showProfileMenu && (

@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../hooks/useAuth';
+import { uploadToCloudinary } from '../../services/cloudinaryService';
+import { uploadFileToDrive } from '../../services/googleDriveService';
 import {
   APPLICATION_STATUSES,
   JOB_TYPES,
@@ -41,6 +44,8 @@ export default function ApplicationFormModal({
     applicationSource: 'LinkedIn',
     salary: '',
     notes: '',
+    fileUrl: '',
+    fileName: '',
     
     // Government specific
     jobGrade: '9th Grade (First Class / BCS)',
@@ -59,8 +64,18 @@ export default function ApplicationFormModal({
     privateInterviewRounds: JSON.parse(JSON.stringify(DEFAULT_PRIVATE_INTERVIEW_ROUNDS)),
   };
 
+  const {
+    hasGoogleDriveAccess,
+    connectGoogleDrive,
+    getGoogleAccessToken,
+  } = useAuth();
+
   const [formData, setFormData] = useState(defaultFormState);
   const [validationErrors, setValidationErrors] = useState({});
+  const [isCloudinaryUploading, setIsCloudinaryUploading] = useState(false);
+  const [isDriveUploading, setIsDriveUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('');
+  const [uploadSource, setUploadSource] = useState(''); // 'cloudinary' | 'drive'
 
   useEffect(() => {
     if (!isOpen) return;
@@ -91,6 +106,8 @@ export default function ApplicationFormModal({
         applicationSource: validData.applicationSource || (initialJobType === 'Government' ? 'Govt Official Gazette / Circular' : 'LinkedIn'),
         salary: validData.salary || '',
         notes: validData.notes || '',
+        fileUrl: validData.fileUrl || '',
+        fileName: validData.fileName || '',
         
         // Govt fields
         jobGrade: validData.jobGrade || '9th Grade (First Class / BCS)',
@@ -116,6 +133,8 @@ export default function ApplicationFormModal({
       setFormData(defaultFormState);
     }
     setValidationErrors({});
+    setIsCloudinaryUploading(false);
+    setUploadMessage('');
   }, [isOpen, initialData?.id]);
 
   useEffect(() => {
@@ -182,6 +201,65 @@ export default function ApplicationFormModal({
       newRounds[index] = { ...newRounds[index], [field]: value };
       return { ...prev, privateInterviewRounds: newRounds };
     });
+  };
+
+  // Handler for direct file upload (CV / Photo / Circular) via Cloudinary
+  const handleCloudinaryUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsCloudinaryUploading(true);
+    setUploadMessage('Uploading file to Cloudinary...');
+
+    try {
+      const result = await uploadToCloudinary(file);
+      if (result && result.url) {
+        setFormData((prev) => ({
+          ...prev,
+          fileUrl: result.url,
+          fileName: file.name,
+        }));
+        setUploadSource('cloudinary');
+        setUploadMessage(`Uploaded successfully to Cloudinary: ${file.name}`);
+      }
+    } catch (err) {
+      console.error(err);
+      setUploadMessage('Upload failed: ' + (err.message || 'Check connection.'));
+    } finally {
+      setIsCloudinaryUploading(false);
+    }
+  };
+
+  // Handler for direct file upload into user's Google Drive
+  const handleGoogleDriveUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const token = getGoogleAccessToken();
+    if (!token) {
+      setUploadMessage('Google Drive not connected. Please connect your Google account.');
+      return;
+    }
+
+    setIsDriveUploading(true);
+    setUploadMessage('Uploading directly to your Google Drive...');
+
+    try {
+      const result = await uploadFileToDrive(token, file, file.name, file.type || 'application/octet-stream');
+      const viewUrl = result.webViewLink || result.webContentLink || '';
+      setFormData((prev) => ({
+        ...prev,
+        fileUrl: viewUrl,
+        fileName: file.name,
+      }));
+      setUploadSource('drive');
+      setUploadMessage(`Uploaded to Google Drive successfully: ${file.name}`);
+    } catch (err) {
+      console.error(err);
+      setUploadMessage('Drive upload failed: ' + (err.message || 'Check permissions.'));
+    } finally {
+      setIsDriveUploading(false);
+    }
   };
 
   const validate = () => {
@@ -1066,6 +1144,139 @@ export default function ApplicationFormModal({
                 onChange={handleChange}
                 className="w-full p-3 bg-surface-container-low border border-outline-variant/50 rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none leading-relaxed"
               />
+            </div>
+
+            {/* CV / Document / Circular Upload: Cloudinary & Google Drive */}
+            <div className="p-3.5 rounded-2xl bg-surface-container-low/60 border border-outline-variant/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-label-md text-label-md font-bold text-on-surface flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px] text-primary">cloud_upload</span>
+                  <span>সংযুক্ত ফাইল / CV / সার্কুলার আপলোড</span>
+                </span>
+                <span className="text-[11px] text-outline">PDF, Docx, Image</span>
+              </div>
+
+              <p className="text-[11px] text-on-surface-variant">
+                সিভি, জব সার্কুলার বা অ্যাডমিট কার্ড আপনার পছন্দমতো <strong>Google Drive</strong> অথবা <strong>Cloudinary</strong> স্টোরেজে আপলোড করতে পারেন।
+              </p>
+
+              {/* Upload Action Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Google Drive Upload Option */}
+                <div className="flex flex-col gap-1">
+                  <label className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-dashed text-xs font-semibold cursor-pointer transition-all ${
+                    isDriveUploading
+                      ? 'bg-surface-container border-outline/30 text-outline cursor-wait'
+                      : 'bg-surface-container-lowest border-emerald-500/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20'
+                  }`}>
+                    <span className="material-symbols-outlined text-[18px] text-emerald-600">
+                      {isDriveUploading ? 'sync' : 'add_to_drive'}
+                    </span>
+                    <span className="truncate">
+                      {isDriveUploading ? 'Saving to Drive...' : 'Upload to Google Drive'}
+                    </span>
+                    <input
+                      type="file"
+                      disabled={isDriveUploading || isCloudinaryUploading}
+                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt"
+                      onChange={handleGoogleDriveUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {!hasGoogleDriveAccess && (
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-[10px] text-outline">Drive auth needed</span>
+                      <button
+                        type="button"
+                        onClick={connectGoogleDrive}
+                        className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
+                      >
+                        Connect Drive
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Cloudinary Upload Option */}
+                <div className="flex flex-col gap-1">
+                  <label className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-dashed text-xs font-semibold cursor-pointer transition-all ${
+                    isCloudinaryUploading
+                      ? 'bg-surface-container border-outline/30 text-outline cursor-wait'
+                      : 'bg-surface-container-lowest border-primary/40 text-primary hover:bg-primary/10'
+                  }`}>
+                    <span className="material-symbols-outlined text-[18px]">
+                      {isCloudinaryUploading ? 'sync' : 'upload_file'}
+                    </span>
+                    <span className="truncate">
+                      {isCloudinaryUploading ? 'Uploading...' : 'Upload to Cloudinary'}
+                    </span>
+                    <input
+                      type="file"
+                      disabled={isCloudinaryUploading || isDriveUploading}
+                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt"
+                      onChange={handleCloudinaryUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  <div className="px-1 text-[10px] text-outline text-right">
+                    Instant CDN hosting
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Attached File Display */}
+              {formData.fileUrl && (
+                <div className="p-2 rounded-xl bg-surface-container-lowest border border-surface-container flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`material-symbols-outlined text-[18px] shrink-0 ${
+                      uploadSource === 'drive' || formData.fileUrl.includes('drive.google.com')
+                        ? 'text-emerald-600'
+                        : 'text-primary'
+                    }`}>
+                      {uploadSource === 'drive' || formData.fileUrl.includes('drive.google.com') ? 'add_to_drive' : 'description'}
+                    </span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-medium text-on-surface truncate">
+                        {formData.fileName || 'Attached Document'}
+                      </span>
+                      <span className="text-[10px] text-outline truncate">
+                        {uploadSource === 'drive' || formData.fileUrl.includes('drive.google.com') ? 'Saved in Google Drive' : 'Stored in Cloudinary'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a
+                      href={formData.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">visibility</span>
+                      <span>View</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, fileUrl: '', fileName: '' }))}
+                      title="Remove attachment"
+                      className="p-1 rounded-lg text-outline hover:text-error hover:bg-error/10 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">close</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {uploadMessage && (
+                <p className={`text-[11px] font-semibold flex items-center gap-1 ${
+                  uploadMessage.includes('failed') ? 'text-error' : 'text-emerald-700 dark:text-emerald-300'
+                }`}>
+                  <span className="material-symbols-outlined text-[14px]">
+                    {uploadMessage.includes('failed') ? 'error' : 'check_circle'}
+                  </span>
+                  <span>{uploadMessage}</span>
+                </p>
+              )}
             </div>
           </div>
 

@@ -83,6 +83,8 @@ export async function createApplication(applicationData) {
       applicationSource: applicationData.applicationSource || (jobType === 'Government' ? 'Govt Official Gazette / Circular' : 'LinkedIn'),
       salary: applicationData.salary?.trim() || '',
       jobUrl: applicationData.jobUrl?.trim() || '',
+      fileUrl: applicationData.fileUrl?.trim() || '',
+      fileName: applicationData.fileName?.trim() || '',
       status: initialStatus,
       priority: applicationData.priority || 'Medium',
       notes: applicationData.notes?.trim() || '',

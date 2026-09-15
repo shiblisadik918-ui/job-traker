@@ -20,6 +20,13 @@ export default function Settings() {
   // On-Demand CV Preview Modal state (hidden by default)
   const [isCvPreviewOpen, setIsCvPreviewOpen] = useState(false);
 
+  // Accordion Sections State - default null so no huge form is open!
+  const [openSection, setOpenSection] = useState(null); // 'personal' | 'career' | 'cv' | 'identity'
+
+  const toggleSection = (sectionId) => {
+    setOpenSection((prev) => (prev === sectionId ? null : sectionId));
+  };
+
   // Profile Editor State
   const [profileLoading, setProfileLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -390,12 +397,12 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Profile Editor Form */}
-        <form onSubmit={handleSaveProfile} className="space-y-4 pt-1">
+        {/* Profile Editor - Modular Accordion System */}
+        <div className="space-y-4 pt-1">
           <div className="flex items-center justify-between text-on-surface font-bold text-sm pb-1">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[20px]">badge</span>
-              <h3>Candidate Details</h3>
+              <span className="material-symbols-outlined text-primary text-[20px]">tune</span>
+              <h3>Profile Settings Sections</h3>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -417,367 +424,499 @@ export default function Settings() {
             </div>
           </div>
 
-                {/* Candidate Photo Uploader */}
-                <div className="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/30 space-y-3">
-                  <label className="block text-xs font-semibold text-on-surface">
-                    প্রোফাইল ছবি (Candidate Photo)
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={photoURL}
-                      alt={displayName}
-                      className="w-14 h-14 rounded-xl object-cover ring-2 ring-primary/20 bg-surface-container"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <input
-                        type="file"
-                        ref={photoInputRef}
-                        accept="image/*"
-                        onChange={handlePhotoUpload}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => photoInputRef.current?.click()}
-                        className="px-3 py-1.5 rounded-lg bg-surface-container text-xs font-semibold text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1.5"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">upload</span>
-                        <span>ছবি আপলোড করুন</span>
-                      </button>
-                      {formData.photoURL && (
-                        <button
-                          type="button"
-                          onClick={handleRemovePhoto}
-                          className="px-2.5 py-1.5 rounded-lg border border-outline-variant/30 text-xs text-on-surface-variant hover:text-red-500 transition-colors"
-                        >
-                          মুছে ফেলুন
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <input
-                    id="photoURL"
-                    name="photoURL"
-                    type="url"
-                    value={formData.photoURL}
-                    onChange={handleChange}
-                    placeholder="অথবা ছবির সরাসরি URL লিংক দিন (https://...)"
-                    className="w-full px-3 py-2 bg-surface-container border border-outline-variant/30 rounded-lg text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Full Name */}
-            <div>
-              <label htmlFor="displayName" className="block text-xs font-semibold text-on-surface mb-1">
-                Full Display Name
-              </label>
-              <input
-                id="displayName"
-                name="displayName"
-                type="text"
-                value={formData.displayName}
-                onChange={handleChange}
-                placeholder="e.g., Alex Chen"
-                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-
-            {/* Target Role */}
-            <div>
-              <label htmlFor="targetRole" className="block text-xs font-semibold text-on-surface mb-1">
-                Target Role / Career Headline
-              </label>
-              <input
-                id="targetRole"
-                name="targetRole"
-                type="text"
-                value={formData.targetRole}
-                onChange={handleChange}
-                placeholder="e.g., Senior Full Stack Engineer"
-                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-
-            {/* Job Search Status */}
-            <div>
-              <label htmlFor="jobSearchStatus" className="block text-xs font-semibold text-on-surface mb-1">
-                Job Search Status
-              </label>
-              <select
-                id="jobSearchStatus"
-                name="jobSearchStatus"
-                value={formData.jobSearchStatus}
-                onChange={handleChange}
-                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="Actively Looking">Actively Looking</option>
-                <option value="Open to Offers">Open to Offers</option>
-                <option value="Interviewing">Interviewing</option>
-                <option value="Accepted Offer">Accepted Offer</option>
-                <option value="Not Looking">Not Looking</option>
-              </select>
-            </div>
-
-            {/* Target Salary */}
-            <div>
-              <label htmlFor="targetSalary" className="block text-xs font-semibold text-on-surface mb-1">
-                Target Minimum Compensation
-              </label>
-              <input
-                id="targetSalary"
-                name="targetSalary"
-                type="text"
-                value={formData.targetSalary}
-                onChange={handleChange}
-                placeholder="e.g., $135,000 - $160,000 / yr"
-                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-
-            {/* Work Mode */}
-            <div>
-              <label htmlFor="workMode" className="block text-xs font-semibold text-on-surface mb-1">
-                Preferred Work Modality
-              </label>
-              <select
-                id="workMode"
-                name="workMode"
-                value={formData.workMode}
-                onChange={handleChange}
-                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="Remote">Remote</option>
-                <option value="Hybrid">Hybrid</option>
-                <option value="On-site">On-site</option>
-                <option value="Flexible">Flexible</option>
-              </select>
-            </div>
-
-            {/* Preferred Location */}
-            <div>
-              <label htmlFor="preferredLocation" className="block text-xs font-semibold text-on-surface mb-1">
-                Preferred Location / Time Zone
-              </label>
-              <input
-                id="preferredLocation"
-                name="preferredLocation"
-                type="text"
-                value={formData.preferredLocation}
-                onChange={handleChange}
-                placeholder="e.g., San Francisco, CA or EST"
-                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-
-            {/* Contact Phone */}
-            <div>
-              <label htmlFor="phone" className="block text-xs font-semibold text-on-surface mb-1">
-                Contact Phone
-              </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="e.g., +1 (555) 019-2834"
-                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-
-            {/* Portfolio URL */}
-            <div>
-              <label htmlFor="portfolioUrl" className="block text-xs font-semibold text-on-surface mb-1">
-                Portfolio / GitHub URL
-              </label>
-              <input
-                id="portfolioUrl"
-                name="portfolioUrl"
-                type="url"
-                value={formData.portfolioUrl}
-                onChange={handleChange}
-                placeholder="e.g., https://github.com/username"
-                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-          </div>
-
-          {/* LinkedIn URL */}
-          <div>
-            <label htmlFor="linkedinUrl" className="block text-xs font-semibold text-on-surface mb-1">
-              LinkedIn Profile URL
-            </label>
-            <input
-              id="linkedinUrl"
-              name="linkedinUrl"
-              type="url"
-              value={formData.linkedinUrl}
-              onChange={handleChange}
-              placeholder="e.g., https://linkedin.com/in/alex-chen"
-              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-
-          {/* Address */}
-          <div>
-            <label htmlFor="address" className="block text-xs font-semibold text-on-surface mb-1">
-              বর্তমান ও স্থায়ী ঠিকানা (Address) *
-            </label>
-            <input
-              id="address"
-              name="address"
-              type="text"
-              value={formData.address}
-              onChange={handleChange}
-              placeholder="আপনার বর্তমান ও স্থায়ী ঠিকানা লিখুন"
-              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-
-          {/* Career Objective */}
-          <div>
-            <label htmlFor="careerObjective" className="block text-xs font-semibold text-on-surface mb-1">
-              Career Objective (ক্যারিয়ার উদ্দেশ্য) *
-            </label>
-            <textarea
-              id="careerObjective"
-              name="careerObjective"
-              rows={2}
-              value={formData.careerObjective}
-              onChange={handleChange}
-              placeholder="আপনার ক্যারিয়ারের উদ্দেশ্য সংক্ষেপে লিখুন..."
-              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y leading-relaxed"
-            />
-          </div>
-
-          {/* Career Summary */}
-          <div>
-            <label htmlFor="careerSummary" className="block text-xs font-semibold text-on-surface mb-1">
-              Career Summary (ক্যারিয়ার সারাংশ) *
-            </label>
-            <textarea
-              id="careerSummary"
-              name="careerSummary"
-              rows={2}
-              value={formData.careerSummary}
-              onChange={handleChange}
-              placeholder="আপনার পেশাগত বা শিক্ষাগত সারাংশ লিখুন..."
-              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y leading-relaxed"
-            />
-          </div>
-
-          {/* Work Experience */}
-          <div>
-            <label htmlFor="workExperience" className="block text-xs font-semibold text-on-surface mb-1">
-              Work Experience (কাজের অভিজ্ঞতা বা ফ্রেশার বিবরণ) *
-            </label>
-            <textarea
-              id="workExperience"
-              name="workExperience"
-              rows={2}
-              value={formData.workExperience}
-              onChange={handleChange}
-              placeholder="কাজের অভিজ্ঞতা বা ফ্রেশার বিবরণ লিখুন..."
-              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y leading-relaxed"
-            />
-          </div>
-
-          {/* Special Qualifications */}
-          <div>
-            <label htmlFor="specialQualifications" className="block text-xs font-semibold text-on-surface mb-1">
-              Special Qualifications (বিশেষ দক্ষতা / স্কিল) *
-            </label>
-            <textarea
-              id="specialQualifications"
-              name="specialQualifications"
-              rows={3}
-              value={formData.specialQualifications}
-              onChange={handleChange}
-              placeholder="আপনার বিশেষ দক্ষতা বা স্কিলসমূহ লিখুন..."
-              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono text-xs leading-relaxed"
-            />
-          </div>
-
-          {/* Language Proficiency */}
-          <div>
-            <label htmlFor="languageProficiency" className="block text-xs font-semibold text-on-surface mb-1">
-              Language Proficiency (ভাষাগত দক্ষতা) *
-            </label>
-            <textarea
-              id="languageProficiency"
-              name="languageProficiency"
-              rows={2}
-              value={formData.languageProficiency}
-              onChange={handleChange}
-              placeholder="ভাষাগত দক্ষতা লিখুন (যেমন: বাংলা, ইংরেজি ইত্যাদি)..."
-              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono text-xs leading-relaxed"
-            />
-          </div>
-
-          {/* Personal Details */}
-          <div>
-            <label htmlFor="personalDetails" className="block text-xs font-semibold text-on-surface mb-1">
-              Personal Details (পিতার নাম, জন্ম তারিখ ইত্যাদি) *
-            </label>
-            <textarea
-              id="personalDetails"
-              name="personalDetails"
-              rows={3}
-              value={formData.personalDetails}
-              onChange={handleChange}
-              placeholder="পিতার নাম, জন্ম তারিখ, জাতীয়তা, ধর্ম ইত্যাদি লিখুন..."
-              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono text-xs leading-relaxed"
-            />
-          </div>
-
-          {/* Bio / Summary */}
-          <div>
-            <label htmlFor="bio" className="block text-xs font-semibold text-on-surface mb-1">
-              Professional Summary &amp; Elevator Pitch
-            </label>
-            <textarea
-              id="bio"
-              name="bio"
-              rows={2}
-              value={formData.bio}
-              onChange={handleChange}
-              placeholder="Describe your core technical strengths, years of experience, and what you're looking for in your next role..."
-              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none leading-relaxed"
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-3 pt-3 border-t border-surface-container-high/30 flex-wrap">
-            <div className="flex items-center gap-2">
+          <form onSubmit={handleSaveProfile} className="space-y-3">
+            {/* 1. Personal & Contact Info Card */}
+            <div className="rounded-xl border border-surface-container-high/60 bg-surface-container-low/40 overflow-hidden transition-all shadow-xs">
               <button
                 type="button"
-                onClick={() => setIsCvPreviewOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all"
+                onClick={() => toggleSection('personal')}
+                className="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-surface-container-high/30 transition-colors"
               >
-                <span className="material-symbols-outlined text-[17px]">visibility</span>
-                <span>সিভি প্রিভিউ ও PDF ডাউনলোড</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[22px]">person</span>
+                  </div>
+                  <div>
+                    <h4 className="font-headline-sm text-sm text-on-surface font-bold">
+                      ১. ব্যক্তিগত ও যোগাযোগ তথ্য (Personal &amp; Contact)
+                    </h4>
+                    <p className="font-body-sm text-[11px] text-on-surface-variant">
+                      নাম, ফোন, ইমেইল, ঠিকানা, প্রোফাইল ছবি ও চাকরির সন্ধানের স্ট্যাটাস
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${formData.displayName && formData.phone ? 'bg-tertiary-container/15 text-tertiary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                    {formData.displayName && formData.phone ? '✓ সম্পূর্ণ' : 'অসম্পূর্ণ'}
+                  </span>
+                  <span className="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform">
+                    {openSection === 'personal' ? 'expand_less' : 'expand_more'}
+                  </span>
+                </div>
               </button>
-              <Link
-                to="/cv"
-                className="hidden sm:flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary transition-colors px-2 py-1"
-              >
-                <span className="material-symbols-outlined text-[15px]">badge</span>
-                <span>CV Builder</span>
-              </Link>
+
+              {openSection === 'personal' && (
+                <div className="p-4 pt-2 border-t border-surface-container-high/40 space-y-4 bg-surface-container-lowest animate-in fade-in duration-200">
+                  {/* Candidate Photo Uploader */}
+                  <div className="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/30 space-y-3">
+                    <label className="block text-xs font-semibold text-on-surface">
+                      প্রোফাইল ছবি (Candidate Photo)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={photoURL}
+                        alt={displayName}
+                        className="w-14 h-14 rounded-xl object-cover ring-2 ring-primary/20 bg-surface-container"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input
+                          type="file"
+                          ref={photoInputRef}
+                          accept="image/*"
+                          onChange={handlePhotoUpload}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => photoInputRef.current?.click()}
+                          className="px-3 py-1.5 rounded-lg bg-surface-container text-xs font-semibold text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">upload</span>
+                          <span>ছবি আপলোড করুন</span>
+                        </button>
+                        {formData.photoURL && (
+                          <button
+                            type="button"
+                            onClick={handleRemovePhoto}
+                            className="px-2.5 py-1.5 rounded-lg border border-outline-variant/30 text-xs text-on-surface-variant hover:text-red-500 transition-colors"
+                          >
+                            মুছে ফেলুন
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      id="photoURL"
+                      name="photoURL"
+                      type="url"
+                      value={formData.photoURL}
+                      onChange={handleChange}
+                      placeholder="অথবা ছবির সরাসরি URL লিংক দিন (https://...)"
+                      className="w-full px-3 py-2 bg-surface-container border border-outline-variant/30 rounded-lg text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="displayName" className="block text-xs font-semibold text-on-surface mb-1">
+                        Full Display Name
+                      </label>
+                      <input
+                        id="displayName"
+                        name="displayName"
+                        type="text"
+                        value={formData.displayName}
+                        onChange={handleChange}
+                        placeholder="e.g., Alex Chen"
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="phone" className="block text-xs font-semibold text-on-surface mb-1">
+                        Contact Phone
+                      </label>
+                      <input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        placeholder="e.g., +1 (555) 019-2834"
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="jobSearchStatus" className="block text-xs font-semibold text-on-surface mb-1">
+                        Job Search Status
+                      </label>
+                      <select
+                        id="jobSearchStatus"
+                        name="jobSearchStatus"
+                        value={formData.jobSearchStatus}
+                        onChange={handleChange}
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="Actively Looking">Actively Looking</option>
+                        <option value="Open to Offers">Open to Offers</option>
+                        <option value="Interviewing">Interviewing</option>
+                        <option value="Accepted Offer">Accepted Offer</option>
+                        <option value="Not Looking">Not Looking</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="address" className="block text-xs font-semibold text-on-surface mb-1">
+                      বর্তমান ও স্থায়ী ঠিকানা (Address) *
+                    </label>
+                    <input
+                      id="address"
+                      name="address"
+                      type="text"
+                      value={formData.address}
+                      onChange={handleChange}
+                      placeholder="আপনার বর্তমান ও স্থায়ী ঠিকানা লিখুন"
+                      className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            <button
-              id="save-profile-settings-btn"
-              type="submit"
-              disabled={isSavingProfile || profileLoading}
-              className="flex items-center gap-1.5 px-space-lg py-2.5 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-primary/90 transition-all shadow-xs disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-[18px]">check</span>
-              <span>{isSavingProfile ? 'সংরক্ষণ হচ্ছে...' : 'তথ্য সংরক্ষণ করুন (Save Profile)'}</span>
-            </button>
-          </div>
-        </form>
+            {/* 2. Career Goals & Salary Preferences Card */}
+            <div className="rounded-xl border border-surface-container-high/60 bg-surface-container-low/40 overflow-hidden transition-all shadow-xs">
+              <button
+                type="button"
+                onClick={() => toggleSection('career')}
+                className="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-surface-container-high/30 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-tertiary-container/15 text-tertiary flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[22px]">work</span>
+                  </div>
+                  <div>
+                    <h4 className="font-headline-sm text-sm text-on-surface font-bold">
+                      ২. ক্যারিয়ার লক্ষ্য ও বেতন প্রত্যাশা (Career Goals &amp; Salary)
+                    </h4>
+                    <p className="font-body-sm text-[11px] text-on-surface-variant">
+                      টার্গেট রোল, প্রত্যাশিত বেতন (BDT), কাজের ধরন ও পেশাগত পরিচিতি (Bio)
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${formData.targetRole ? 'bg-tertiary-container/15 text-tertiary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                    {formData.targetRole ? '✓ সম্পূর্ণ' : 'অসম্পূর্ণ'}
+                  </span>
+                  <span className="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform">
+                    {openSection === 'career' ? 'expand_less' : 'expand_more'}
+                  </span>
+                </div>
+              </button>
+
+              {openSection === 'career' && (
+                <div className="p-4 pt-2 border-t border-surface-container-high/40 space-y-4 bg-surface-container-lowest animate-in fade-in duration-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="targetRole" className="block text-xs font-semibold text-on-surface mb-1">
+                        Target Role / Career Headline
+                      </label>
+                      <input
+                        id="targetRole"
+                        name="targetRole"
+                        type="text"
+                        value={formData.targetRole}
+                        onChange={handleChange}
+                        placeholder="e.g., Senior Full Stack Engineer"
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="targetSalary" className="block text-xs font-semibold text-on-surface mb-1">
+                        Target Minimum Compensation
+                      </label>
+                      <input
+                        id="targetSalary"
+                        name="targetSalary"
+                        type="text"
+                        value={formData.targetSalary}
+                        onChange={handleChange}
+                        placeholder="e.g., $135,000 - $160,000 / yr"
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="workMode" className="block text-xs font-semibold text-on-surface mb-1">
+                        Preferred Work Modality
+                      </label>
+                      <select
+                        id="workMode"
+                        name="workMode"
+                        value={formData.workMode}
+                        onChange={handleChange}
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="Remote">Remote</option>
+                        <option value="Hybrid">Hybrid</option>
+                        <option value="On-site">On-site</option>
+                        <option value="Flexible">Flexible</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="preferredLocation" className="block text-xs font-semibold text-on-surface mb-1">
+                        Preferred Location / Time Zone
+                      </label>
+                      <input
+                        id="preferredLocation"
+                        name="preferredLocation"
+                        type="text"
+                        value={formData.preferredLocation}
+                        onChange={handleChange}
+                        placeholder="e.g., San Francisco, CA or EST"
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="bio" className="block text-xs font-semibold text-on-surface mb-1">
+                      Professional Summary &amp; Elevator Pitch
+                    </label>
+                    <textarea
+                      id="bio"
+                      name="bio"
+                      rows={2}
+                      value={formData.bio}
+                      onChange={handleChange}
+                      placeholder="Describe your core technical strengths, years of experience, and what you're looking for in your next role..."
+                      className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none leading-relaxed"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Live CV Core Qualifications Card */}
+            <div className="rounded-xl border border-surface-container-high/60 bg-surface-container-low/40 overflow-hidden transition-all shadow-xs">
+              <button
+                type="button"
+                onClick={() => toggleSection('cv')}
+                className="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-surface-container-high/30 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[22px]">description</span>
+                  </div>
+                  <div>
+                    <h4 className="font-headline-sm text-sm text-on-surface font-bold">
+                      ৩. লাইভ সিভি কোর তথ্য ও অভিজ্ঞতা (Live CV Core Qualifications)
+                    </h4>
+                    <p className="font-body-sm text-[11px] text-on-surface-variant">
+                      ক্যারিয়ার অবজেক্টিভ, সামারি, কাজের অভিজ্ঞতা, বিশেষ দক্ষতা ও ভাষা
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${formData.careerObjective && formData.workExperience ? 'bg-tertiary-container/15 text-tertiary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                    {formData.careerObjective && formData.workExperience ? '✓ সম্পূর্ণ' : 'অসম্পূর্ণ'}
+                  </span>
+                  <span className="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform">
+                    {openSection === 'cv' ? 'expand_less' : 'expand_more'}
+                  </span>
+                </div>
+              </button>
+
+              {openSection === 'cv' && (
+                <div className="p-4 pt-2 border-t border-surface-container-high/40 space-y-4 bg-surface-container-lowest animate-in fade-in duration-200">
+                  <div>
+                    <label htmlFor="careerObjective" className="block text-xs font-semibold text-on-surface mb-1">
+                      Career Objective (ক্যারিয়ার উদ্দেশ্য) *
+                    </label>
+                    <textarea
+                      id="careerObjective"
+                      name="careerObjective"
+                      rows={2}
+                      value={formData.careerObjective}
+                      onChange={handleChange}
+                      placeholder="আপনার ক্যারিয়ারের উদ্দেশ্য সংক্ষেপে লিখুন..."
+                      className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y leading-relaxed"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="careerSummary" className="block text-xs font-semibold text-on-surface mb-1">
+                      Career Summary (ক্যারিয়ার সারাংশ) *
+                    </label>
+                    <textarea
+                      id="careerSummary"
+                      name="careerSummary"
+                      rows={2}
+                      value={formData.careerSummary}
+                      onChange={handleChange}
+                      placeholder="আপনার পেশাগত বা শিক্ষাগত সারাংশ লিখুন..."
+                      className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y leading-relaxed"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="workExperience" className="block text-xs font-semibold text-on-surface mb-1">
+                      Work Experience (কাজের অভিজ্ঞতা বা ফ্রেশার বিবরণ) *
+                    </label>
+                    <textarea
+                      id="workExperience"
+                      name="workExperience"
+                      rows={3}
+                      value={formData.workExperience}
+                      onChange={handleChange}
+                      placeholder="কাজের অভিজ্ঞতা বা ফ্রেশার বিবরণ লিখুন..."
+                      className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="specialQualifications" className="block text-xs font-semibold text-on-surface mb-1">
+                        Special Qualifications (বিশেষ দক্ষতা / স্কিল) *
+                      </label>
+                      <textarea
+                        id="specialQualifications"
+                        name="specialQualifications"
+                        rows={2}
+                        value={formData.specialQualifications}
+                        onChange={handleChange}
+                        placeholder="আপনার বিশেষ দক্ষতা বা স্কিলসমূহ লিখুন..."
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono text-xs leading-relaxed"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="languageProficiency" className="block text-xs font-semibold text-on-surface mb-1">
+                        Language Proficiency (ভাষাগত দক্ষতা) *
+                      </label>
+                      <textarea
+                        id="languageProficiency"
+                        name="languageProficiency"
+                        rows={2}
+                        value={formData.languageProficiency}
+                        onChange={handleChange}
+                        placeholder="ভাষাগত দক্ষতা লিখুন (যেমন: বাংলা, ইংরেজি ইত্যাদি)..."
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono text-xs leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Identity & Online Links Card */}
+            <div className="rounded-xl border border-surface-container-high/60 bg-surface-container-low/40 overflow-hidden transition-all shadow-xs">
+              <button
+                type="button"
+                onClick={() => toggleSection('identity')}
+                className="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-surface-container-high/30 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-secondary-container text-on-secondary-fixed flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[22px]">badge</span>
+                  </div>
+                  <div>
+                    <h4 className="font-headline-sm text-sm text-on-surface font-bold">
+                      ৪. জাতীয় পরিচয়পত্র ও অনলাইন লিংক (Identity &amp; Online Links)
+                    </h4>
+                    <p className="font-body-sm text-[11px] text-on-surface-variant">
+                      পিতার নাম, জন্ম তারিখ, জাতীয়তা, লিঙ্কডইন ও পোর্টফোলিও লিংক
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${formData.personalDetails ? 'bg-tertiary-container/15 text-tertiary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                    {formData.personalDetails ? '✓ সম্পূর্ণ' : 'অসম্পূর্ণ'}
+                  </span>
+                  <span className="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform">
+                    {openSection === 'identity' ? 'expand_less' : 'expand_more'}
+                  </span>
+                </div>
+              </button>
+
+              {openSection === 'identity' && (
+                <div className="p-4 pt-2 border-t border-surface-container-high/40 space-y-4 bg-surface-container-lowest animate-in fade-in duration-200">
+                  <div>
+                    <label htmlFor="personalDetails" className="block text-xs font-semibold text-on-surface mb-1">
+                      Personal Details (পিতার নাম, জন্ম তারিখ ইত্যাদি) *
+                    </label>
+                    <textarea
+                      id="personalDetails"
+                      name="personalDetails"
+                      rows={3}
+                      value={formData.personalDetails}
+                      onChange={handleChange}
+                      placeholder="পিতার নাম, জন্ম তারিখ, জাতীয়তা, ধর্ম ইত্যাদি লিখুন..."
+                      className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono text-xs leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="linkedinUrl" className="block text-xs font-semibold text-on-surface mb-1">
+                        LinkedIn Profile URL
+                      </label>
+                      <input
+                        id="linkedinUrl"
+                        name="linkedinUrl"
+                        type="url"
+                        value={formData.linkedinUrl}
+                        onChange={handleChange}
+                        placeholder="e.g., https://linkedin.com/in/alex-chen"
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="portfolioUrl" className="block text-xs font-semibold text-on-surface mb-1">
+                        Portfolio / GitHub URL
+                      </label>
+                      <input
+                        id="portfolioUrl"
+                        name="portfolioUrl"
+                        type="url"
+                        value={formData.portfolioUrl}
+                        onChange={handleChange}
+                        placeholder="e.g., https://github.com/username"
+                        className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Form Actions */}
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-surface-container-high/30 flex-wrap">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCvPreviewOpen(true)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all"
+                >
+                  <span className="material-symbols-outlined text-[17px]">visibility</span>
+                  <span>সিভি প্রিভিউ ও PDF ডাউনলোড</span>
+                </button>
+                <Link
+                  to="/cv"
+                  className="hidden sm:flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary transition-colors px-2 py-1"
+                >
+                  <span className="material-symbols-outlined text-[15px]">badge</span>
+                  <span>CV Builder</span>
+                </Link>
+              </div>
+
+              <button
+                id="save-profile-settings-btn"
+                type="submit"
+                disabled={isSavingProfile || profileLoading}
+                className="flex items-center gap-1.5 px-space-lg py-2.5 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-primary/90 transition-all shadow-xs disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">check</span>
+                <span>{isSavingProfile ? 'সংরক্ষণ হচ্ছে...' : 'তথ্য সংরক্ষণ করুন (Save Profile)'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       {/* On-Demand CV Preview & Download Modal */}

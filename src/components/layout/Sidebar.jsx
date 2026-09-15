@@ -10,17 +10,17 @@ export default function Sidebar() {
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: 'grid_view' },
-    { to: '/applications', label: 'Applications', icon: 'view_kanban' },
+    { to: '/applications', label: 'Applications', icon: 'receipt_long', badgeCount: 2 },
     {
       to: '/cv',
       label: 'Live CV',
-      icon: 'badge',
+      icon: 'verified_user',
       badge: isVerified ? 'Verified' : `${profileCompleteness || 0}%`,
       isVerified,
     },
-    { to: '/reminders', label: 'Reminders', icon: 'alarm' },
-    { to: '/statistics', label: 'Statistics', icon: 'insights' },
-    { to: '/settings', label: 'Settings', icon: 'settings' },
+    { to: '/reminders', label: 'Reminders', icon: 'event_upcoming' },
+    { to: '/statistics', label: 'Statistics', icon: 'monitoring' },
+    { to: '/settings', label: 'Settings', icon: 'tune' },
   ];
 
   const handleLogout = async () => {
@@ -48,42 +48,49 @@ export default function Sidebar() {
     >
       <div className="flex flex-col">
         {/* Brand Bar */}
-        <div className="h-16 px-space-md flex items-center justify-between border-b border-surface-container-high/20">
-          <div className="flex items-center gap-space-xs">
+        <div className="h-16 px-space-md flex items-center justify-between border-b border-surface-container-high/20 bg-surface-container-low">
+          <div className="flex items-center gap-space-sm">
             <JobTrackLogo className="h-8 w-auto object-contain" />
-            <span className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">
-              JobTrack
-            </span>
-            <span className="px-space-xs py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium">
-              Personal
-            </span>
+            <div className="flex flex-col">
+              <span className="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight leading-tight">
+                JobTrack
+              </span>
+              <span className="font-label-sm text-label-sm text-secondary leading-none">
+                Job Application Tracker
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Workspace Navigation */}
         <div className="px-space-md pt-space-md">
-          <div className="px-space-xs pb-space-xs font-label-sm text-label-sm text-outline uppercase tracking-wider">
-            Workspace
+          <div className="px-space-xs pb-space-xs font-label-sm text-label-sm text-secondary uppercase tracking-wider">
+            Navigation
           </div>
-          <nav className="flex flex-col gap-space-2xs">
+          <nav className="flex flex-col gap-1">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 id={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex items-center justify-between px-space-sm py-space-xs rounded-xl transition-all ${
+                  `flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
                     isActive
-                      ? 'bg-primary-container text-on-primary font-medium shadow-sm'
+                      ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
                       : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                   }`
                 }
               >
-                <div className="flex items-center gap-space-xs">
+                <div className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                  <span className="font-body-md text-body-md">{item.label}</span>
+                  <span className="font-label-md text-label-md">{item.label}</span>
                 </div>
-                {item.badge && (
+                {item.badgeCount && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-error text-on-error font-code-num text-label-sm font-bold">
+                    {item.badgeCount}
+                  </span>
+                )}
+                {item.badge && !item.badgeCount && (
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       item.isVerified

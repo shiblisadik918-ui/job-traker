@@ -568,30 +568,45 @@ export default function Applications() {
           </div>
 
           {/* List vs Grid vs Kanban Layout View Switcher */}
-          <div className="flex items-center gap-1 p-0.5 rounded-lg bg-surface-container-low border border-outline-variant/30">
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-container-low border border-outline-variant/30">
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              className={`p-1 rounded ${viewMode === 'list' ? 'bg-surface-container-lowest text-primary shadow-xs' : 'text-outline hover:text-on-surface'}`}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'list'
+                  ? 'bg-surface-container-lowest text-primary shadow-xs font-bold'
+                  : 'text-outline hover:text-on-surface'
+              }`}
               title="List View"
             >
-              <span className="material-symbols-outlined text-[18px]">view_list</span>
+              <span className="material-symbols-outlined text-[17px]">view_list</span>
+              <span className="hidden sm:inline">লিস্ট</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              className={`p-1 rounded ${viewMode === 'grid' ? 'bg-surface-container-lowest text-primary shadow-xs' : 'text-outline hover:text-on-surface'}`}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-surface-container-lowest text-primary shadow-xs font-bold'
+                  : 'text-outline hover:text-on-surface'
+              }`}
               title="Grid View"
             >
-              <span className="material-symbols-outlined text-[18px]">grid_view</span>
+              <span className="material-symbols-outlined text-[17px]">grid_view</span>
+              <span className="hidden sm:inline">গ্রিড</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('kanban')}
-              className={`p-1 rounded ${viewMode === 'kanban' ? 'bg-surface-container-lowest text-primary shadow-xs' : 'text-outline hover:text-on-surface'}`}
-              title="Kanban Board View"
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'kanban'
+                  ? 'bg-primary text-on-primary shadow-xs font-bold'
+                  : 'text-outline hover:text-on-surface'
+              }`}
+              title="Kanban Board View (Drag & Drop)"
             >
-              <span className="material-symbols-outlined text-[18px]">view_kanban</span>
+              <span className="material-symbols-outlined text-[17px]">view_kanban</span>
+              <span>কানবান বোর্ড</span>
             </button>
           </div>
         </div>
@@ -756,9 +771,31 @@ export default function Applications() {
                         <span className="font-headline-sm text-body-md font-bold text-on-surface">
                           {app.companyName}
                         </span>
-                        <span className="px-space-xs py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-[10px] font-semibold uppercase">
-                          {isRemote ? 'Remote' : isHybrid ? 'Hybrid' : 'On-site'}
-                        </span>
+                        {(app.job_type || 'Private') === 'Government' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-label-sm text-[10px] font-bold">
+                            <span className="material-symbols-outlined text-[12px]">account_balance</span>
+                            <span>সরকারি</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 font-label-sm text-[10px] font-bold">
+                            <span className="material-symbols-outlined text-[12px]">business</span>
+                            <span>বেসরকারি</span>
+                          </span>
+                        )}
+                        {(() => {
+                          const pStatus = (app.paymentStatus || '').toLowerCase();
+                          const isPaid = pStatus.includes('paid');
+                          const feeStr = app.applicationFee ? `(${app.applicationFee})` : '';
+                          return isPaid ? (
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                              ✓ Paid {feeStr}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-500/30 text-[10px] font-bold">
+                              ⏳ Unpaid {feeStr}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       <h3 className="font-headline-sm text-body-sm font-semibold text-on-surface truncate group-hover:text-primary transition-colors">

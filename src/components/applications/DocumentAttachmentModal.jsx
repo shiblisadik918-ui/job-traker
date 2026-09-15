@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { uploadToCloudinary } from '../../services/cloudinaryService';
 
 const DOCUMENT_TYPES = [
   'Resume',
@@ -24,6 +25,8 @@ export default function DocumentAttachmentModal({
   const [notes, setNotes] = useState('');
   const [selectedFileName, setSelectedFileName] = useState('');
   const [error, setError] = useState('');
+  const [isCloudinaryUploading, setIsCloudinaryUploading] = useState(false);
+  const [uploadSuccessMsg, setUploadSuccessMsg] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -41,10 +44,38 @@ export default function DocumentAttachmentModal({
         setSelectedFileName('');
       }
       setError('');
+      setUploadSuccessMsg('');
+      setIsCloudinaryUploading(false);
     }
   }, [isOpen, initialData]);
 
   if (!isOpen) return null;
+
+  const handleCloudinaryFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError('');
+    setUploadSuccessMsg('');
+    setIsCloudinaryUploading(true);
+
+    try {
+      const result = await uploadToCloudinary(file);
+      if (result && result.url) {
+        setUrl(result.url);
+        setSelectedFileName(file.name);
+        if (!name.trim()) {
+          setName(file.name);
+        }
+        setUploadSuccessMsg(`Uploaded successfully! (${file.name})`);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Cloudinary upload failed: ' + (err.message || 'Check connection.'));
+    } finally {
+      setIsCloudinaryUploading(false);
+    }
+  };
 
   const handleLocalFileSelect = (e) => {
     const file = e.target.files?.[0];
@@ -144,10 +175,56 @@ export default function DocumentAttachmentModal({
             />
           </div>
 
+          {/* Direct Cloud Upload via Cloudinary */}
+          <div className="p-3 rounded-2xl bg-primary/5 border border-primary/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-on-surface flex items-center gap-1.5 text-xs text-primary">
+                <span className="material-symbols-outlined text-[16px]">cloud_upload</span>
+                <span>Direct Cloud Upload (Cloudinary)</span>
+              </span>
+              <span className="text-[10px] text-outline">PDF, Docx, Image</span>
+            </div>
+
+            <p className="text-[11px] text-on-surface-variant leading-tight">
+              Upload CV, admit card, or job circular directly. It saves to your Cloudinary storage and populates the permanent link.
+            </p>
+
+            <label className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-dashed text-xs font-semibold cursor-pointer transition-all ${
+              isCloudinaryUploading
+                ? 'bg-surface-container border-outline/30 text-outline cursor-wait'
+                : 'bg-surface-container-lowest border-primary/40 text-primary hover:bg-primary/10'
+            }`}>
+              <span className="material-symbols-outlined text-[18px]">
+                {isCloudinaryUploading ? 'sync' : 'upload_file'}
+              </span>
+              <span>
+                {isCloudinaryUploading
+                  ? 'Uploading to Cloudinary...'
+                  : selectedFileName
+                  ? `Uploaded: ${selectedFileName}`
+                  : 'Choose File to Upload (CV/Photo/Circular)'}
+              </span>
+              <input
+                type="file"
+                disabled={isCloudinaryUploading}
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt"
+                onChange={handleCloudinaryFileUpload}
+                className="hidden"
+              />
+            </label>
+
+            {uploadSuccessMsg && (
+              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                <span>{uploadSuccessMsg}</span>
+              </p>
+            )}
+          </div>
+
           {/* Cloud Link / URL */}
           <div>
             <label className="block font-semibold text-on-surface mb-1">
-              Document Link / URL <span className="text-outline font-normal">(Google Drive, Dropbox, Notion, etc.)</span>
+              Document Link / URL <span className="text-outline font-normal">(Cloudinary, Google Drive, etc.)</span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-2.5 text-outline material-symbols-outlined text-[16px]">

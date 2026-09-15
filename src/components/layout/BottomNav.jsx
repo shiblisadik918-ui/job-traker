@@ -1,68 +1,71 @@
 import { NavLink } from 'react-router-dom';
-import { useApplicationModal } from '../../context/ApplicationModalContext';
 
 export default function BottomNav() {
-  const { openAddModal } = useApplicationModal();
-
   return (
     <nav
       id="mobile-bottom-nav"
-      className="md:hidden fixed bottom-0 w-full z-50 pb-safe bg-surface/85 dark:bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)] border-t border-surface-container-high/30 select-none"
+      className="md:hidden fixed bottom-0 w-full z-50 pb-safe bg-surface/90 dark:bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.04)] border-t border-surface-container-high/40 select-none"
     >
-      <div className="h-16 px-space-xs flex items-center justify-around relative">
-        {/* Home / Dashboard */}
+      <div className="flex items-center justify-around h-16 px-1">
+        {/* Dashboard */}
         <NavLink
-          id="mobile-nav-home"
+          id="mobile-nav-dashboard"
           to="/dashboard"
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center min-w-[56px] h-12 transition-colors ${
-              isActive ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'
+            `flex flex-col items-center justify-center min-w-[56px] h-12 gap-0.5 transition-colors ${
+              isActive ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
             }`
           }
         >
-          <span className="material-symbols-outlined text-[24px]">dashboard</span>
-          <span className="font-label-sm text-label-sm mt-0.5">Home</span>
+          <span className="material-symbols-outlined text-[22px]">dashboard</span>
+          <span className="font-label-sm text-[11px]">Dashboard</span>
         </NavLink>
 
-        {/* Jobs / Applications */}
+        {/* Applications */}
         <NavLink
-          id="mobile-nav-jobs"
+          id="mobile-nav-applications"
           to="/applications"
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center min-w-[56px] h-12 transition-colors ${
-              isActive ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'
+            `flex flex-col items-center justify-center min-w-[56px] h-12 gap-0.5 transition-colors relative ${
+              isActive ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
             }`
           }
         >
-          <span className="material-symbols-outlined text-[24px]">work_outline</span>
-          <span className="font-label-sm text-label-sm mt-0.5">Jobs</span>
+          <div className="relative">
+            <span className="material-symbols-outlined text-[22px]">receipt_long</span>
+            <span className="absolute -top-1 -right-2 bg-error text-on-error font-label-sm text-[10px] h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center leading-none font-bold">
+              2
+            </span>
+          </div>
+          <span className="font-label-sm text-[11px]">Applications</span>
         </NavLink>
-
-        {/* Center Floating Plus Button */}
-        <div className="relative flex items-center justify-center -top-4">
-          <button
-            id="mobile-center-add-btn"
-            type="button"
-            onClick={() => openAddModal()}
-            aria-label="Add new application"
-            className="w-[52px] h-[52px] rounded-full bg-primary text-on-primary flex items-center justify-center shadow-[0_4px_14px_rgba(53,37,205,0.35)] active:scale-95 transition-all hover:bg-primary-container"
-          >
-            <span className="material-symbols-outlined text-[28px]">add</span>
-          </button>
-        </div>
 
         {/* Live CV */}
         <NavLink
           id="mobile-nav-cv"
           to="/cv"
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center min-w-[56px] h-12 transition-colors ${
-              isActive ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'
+            `flex flex-col items-center justify-center min-w-[56px] h-12 gap-0.5 transition-colors ${
+              isActive ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
             }`
           }
         >
-          <span className="material-symbols-outlined text-[24px]">badge</span>
-          <span className="font-label-sm text-label-sm mt-0.5">CV</span>
+          <span className="material-symbols-outlined text-[22px]">badge</span>
+          <span className="font-label-sm text-[11px]">Live CV</span>
+        </NavLink>
+
+        {/* Reminders */}
+        <NavLink
+          id="mobile-nav-reminders"
+          to="/reminders"
+          className={({ isActive }) =>
+            `flex flex-col items-center justify-center min-w-[56px] h-12 gap-0.5 transition-colors ${
+              isActive ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
+            }`
+          }
+        >
+          <span className="material-symbols-outlined text-[22px]">event_upcoming</span>
+          <span className="font-label-sm text-[11px]">Reminders</span>
         </NavLink>
 
         {/* Settings */}
@@ -70,13 +73,13 @@ export default function BottomNav() {
           id="mobile-nav-settings"
           to="/settings"
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center min-w-[56px] h-12 transition-colors ${
-              isActive ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-on-surface'
+            `flex flex-col items-center justify-center min-w-[56px] h-12 gap-0.5 transition-colors ${
+              isActive ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
             }`
           }
         >
-          <span className="material-symbols-outlined text-[24px]">settings</span>
-          <span className="font-label-sm text-label-sm mt-0.5">Settings</span>
+          <span className="material-symbols-outlined text-[22px]">settings</span>
+          <span className="font-label-sm text-[11px]">Settings</span>
         </NavLink>
       </div>
     </nav>

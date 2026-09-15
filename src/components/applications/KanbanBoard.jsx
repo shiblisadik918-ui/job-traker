@@ -5,35 +5,45 @@ import { formatDisplayDate } from '../../utils/constants';
 const KANBAN_COLUMNS = [
   {
     id: 'Applied',
-    title: 'Applied',
+    title: 'আবেদন করা হয়েছে (Applied)',
+    shortTitle: 'Applied',
+    icon: 'send',
     color: 'border-t-sky-500',
     bgBadge: 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300',
     dotColor: 'bg-sky-500',
   },
   {
     id: 'Shortlisted',
-    title: 'Shortlisted',
+    title: 'বাছাইকৃত (Shortlisted)',
+    shortTitle: 'Shortlisted',
+    icon: 'star',
     color: 'border-t-indigo-500',
     bgBadge: 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300',
     dotColor: 'bg-indigo-500',
   },
   {
     id: 'Interview',
-    title: 'Interview',
+    title: 'পরীক্ষা / ইন্টারভিউ (Interview)',
+    shortTitle: 'Interview',
+    icon: 'record_voice_over',
     color: 'border-t-amber-500',
     bgBadge: 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300',
     dotColor: 'bg-amber-500',
   },
   {
     id: 'Offer',
-    title: 'Offer',
+    title: 'অফার প্রাপ্ত (Offer)',
+    shortTitle: 'Offer',
+    icon: 'verified',
     color: 'border-t-emerald-500',
     bgBadge: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300',
     dotColor: 'bg-emerald-500',
   },
   {
     id: 'Rejected',
-    title: 'Archived',
+    title: 'সংরক্ষিত / রিজেক্টেড (Archived)',
+    shortTitle: 'Archived',
+    icon: 'archive',
     color: 'border-t-slate-400',
     bgBadge: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300',
     dotColor: 'bg-slate-400',
@@ -144,12 +154,15 @@ export default function KanbanBoard({
             <div
               className={`p-3 border-t-4 ${col.color} border-b border-surface-container-high/40 bg-surface-container-lowest flex items-center justify-between gap-2`}
             >
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${col.dotColor}`}></span>
-                <h3 className="font-headline-sm text-xs font-bold text-on-surface uppercase tracking-wider">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`w-2 h-2 rounded-full ${col.dotColor} shrink-0`}></span>
+                <span className="material-symbols-outlined text-[16px] text-on-surface-variant shrink-0">
+                  {col.icon || 'folder'}
+                </span>
+                <h3 className="font-headline-sm text-xs font-bold text-on-surface truncate" title={col.title}>
                   {col.title}
                 </h3>
-                <span className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${col.bgBadge}`}>
+                <span className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold shrink-0 ${col.bgBadge}`}>
                   {colApps.length}
                 </span>
               </div>
@@ -157,9 +170,9 @@ export default function KanbanBoard({
               <button
                 type="button"
                 onClick={() => onAdd(col.id)}
-                className="p-1 rounded-lg text-outline hover:text-primary hover:bg-surface-container transition-colors"
-                title={`Add application to ${col.title}`}
-                aria-label={`Add application to ${col.title}`}
+                className="p-1 rounded-lg text-outline hover:text-primary hover:bg-surface-container transition-colors shrink-0"
+                title={`Add application to ${col.shortTitle || col.title}`}
+                aria-label={`Add application to ${col.shortTitle || col.title}`}
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
               </button>
@@ -179,6 +192,7 @@ export default function KanbanBoard({
                 colApps.map((app) => {
                   const isMoving = movingAppId === app.id;
                   const isBeingDragged = draggedAppId === app.id;
+                  const isGovt = (app.jobType || '').toLowerCase().includes('govt') || (app.jobType || '').toLowerCase().includes('সরকারি');
 
                   return (
                     <div
@@ -187,9 +201,13 @@ export default function KanbanBoard({
                       draggable
                       onDragStart={(e) => handleDragStart(e, app)}
                       onClick={() => onCardClick && onCardClick(app)}
-                      title="Click to update status or delete record"
-                      className={`p-3 rounded-xl bg-surface-container-lowest border border-surface-container-high/40 shadow-xs hover:shadow-md hover:border-primary/40 transition-all cursor-pointer group space-y-2 ${
-                        isBeingDragged ? 'opacity-40 scale-95 border-dashed border-primary' : ''
+                      title="Drag to change stage or click for options"
+                      className={`p-3 rounded-xl bg-surface-container-lowest border border-surface-container-high/40 shadow-xs hover:shadow-md hover:border-primary/40 transition-all cursor-grab active:cursor-grabbing group space-y-2 relative overflow-hidden ${
+                        isGovt
+                          ? 'border-l-4 border-l-emerald-600 dark:border-l-emerald-500'
+                          : 'border-l-4 border-l-sky-500 dark:border-l-sky-400'
+                      } ${
+                        isBeingDragged ? 'opacity-40 scale-95 border-dashed border-primary shadow-lg' : ''
                       } ${isMoving ? 'animate-pulse' : ''}`}
                     >
                       {/* Card Header: Monogram & Company */}
@@ -229,13 +247,26 @@ export default function KanbanBoard({
 
                       {/* Location & Modality Badges */}
                       <div className="flex items-center gap-1.5 text-[10px] text-outline flex-wrap font-body-sm">
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-bold text-[9.5px] uppercase flex items-center gap-0.5 ${
+                            isGovt
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                              : 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[11px]">
+                            {isGovt ? 'account_balance' : 'domain'}
+                          </span>
+                          <span>{isGovt ? 'সরকারি (Govt)' : 'বেসরকারি (Private)'}</span>
+                        </span>
+
                         {app.location && (
                           <span className="flex items-center gap-0.5 truncate max-w-[120px]">
                             <span className="material-symbols-outlined text-[12px]">location_on</span>
                             <span className="truncate">{app.location}</span>
                           </span>
                         )}
-                        {app.jobType && (
+                        {app.jobType && !isGovt && (
                           <span className="px-1.5 py-0.2 rounded bg-surface-container-low text-on-surface-variant font-medium">
                             {app.jobType}
                           </span>
@@ -247,6 +278,24 @@ export default function KanbanBoard({
                         <div className="font-mono-metric text-[11px] font-semibold text-secondary flex items-center gap-1">
                           <span className="material-symbols-outlined text-[12px]">payments</span>
                           <span>{app.salary}</span>
+                        </div>
+                      )}
+
+                      {/* Attached File Link (Cloudinary / Direct Upload) */}
+                      {app.fileUrl && (
+                        <div className="pt-1">
+                          <a
+                            href={app.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline bg-primary/10 px-2 py-0.5 rounded border border-primary/20 transition-colors"
+                            title={app.fileName || 'View Attached CV/Document'}
+                          >
+                            <span className="material-symbols-outlined text-[13px]">attach_file</span>
+                            <span className="truncate max-w-[150px]">{app.fileName || 'View Attached CV / File'}</span>
+                            <span className="material-symbols-outlined text-[11px]">open_in_new</span>
+                          </a>
                         </div>
                       )}
 
